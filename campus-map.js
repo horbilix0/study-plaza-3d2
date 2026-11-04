@@ -56,14 +56,28 @@ export function buildCampus(world,id) {
   };
   const desk=(x,z,wall)=>{
     shadow(x,z,3.12,1.8,wall);
-    box(x,.67,z,2.77,.14,1.42,'#D9B288');
-    for(const dx of [-1.16,1.16])for(const dz of [-.53,.53])box(x+dx,.31,z+dz,.088,.63,.088,wall);
-    for(const dx of [-.65,.65]){
-      box(x+dx,.765,z+.13,.67,.035,.39,'#F1E4C7',.05);
-      box(x+dx,.79,z+.12,.038,.04,.38,wall);
+    box(x,.674,z,2.77,.12,1.42,'#C89465');
+    box(x,.733,z,2.70,.026,1.35,'#E2B986');
+    box(x,.583,z,2.38,.10,.83,wall);
+    for(const dx of [-1.16,1.16])for(const dz of [-.53,.53])box(x+dx,.31,z+dz,.096,.63,.096,wall);
+    for(const [dx,cover] of [[-.65,'#526E84'],[.65,'#B76257']]){
+      box(x+dx,.752,z+.16,.67,.017,.43,cover);
+      for(const side of [-1,1]){
+        box(x+dx+side*.16,.772,z+.16,.30,.034,.394,'#FFF0D4',side*.11);
+        for(let line=0;line<4;line++)box(x+dx+side*.15,.794,z+.061+line*.052,.215,.005,.009,'#BDA887');
+      }
+      box(x+dx,.787,z+.16,.026,.022,.4,'#A68566');
     }
-    cyl(x, .83,z-.45,.22,.19,.22,accent);
-    orb(x,.96,z-.44,.29,.22,.25,'#91AD78');
+    box(x-.22,.761,z+.41,.22,.021,.024,'#AD554C',0,0,.40);
+    cyl(x+.57,.766,z-.42,.27,.041,.25,'#E1C09A');
+    cyl(x+.57,.824,z-.42,.13,.09,.13,'#A76559');
+    cyl(x+.57,.873,z-.42,.108,.009,.108,'#665048');
+    world.add('ring',x+.652,.827,z-.42,.07,.074,.045,'#A76559',Math.PI/2);
+    cyl(x-.59,.771,z-.42,.25,.05,.25,wall);
+    box(x-.59,.92,z-.43,.036,.29,.036,wall,.23);
+    box(x-.66,1.062,z-.38,.041,.044,.20,wall,0,-.22);
+    taper(x-.66,1.041,z-.27,.20,.13,.21,accent);
+    cyl(x-.66,.982,z-.27,.126,.026,.126,'#FFE5A4');
     for(const seat of map.seats)chair(seat.x,seat.z,accent,wall);
   };
   const canopy=(x,z,w,d,frame,top)=>{
@@ -110,28 +124,62 @@ export function buildCampus(world,id) {
       return;
     }
     shadow(x,z,2.5,1.42,frame);
+    if(key==='arcade'){
+      const cabinet=(cx,body,bezel,pixels)=>{
+        const dark='#203344';
+        world.add('arcadeCabinet',cx,.81,z,.88,1.62,.97,body);
+        box(cx,.071,z,.91,.12,.93,dark);
+        for(const side of [-1,1]){
+          box(cx+side*.446,.46,z+.05,.018,.55,.58,bezel,0,-.11);
+          box(cx+side*.457,.48,z+.06,.010,.26,.28,pixels,0,-.16);
+        }
+        box(cx,1.24,z+.307,.74,.52,.22,dark,0,-.27);
+        box(cx,1.24,z+.434,.62,.38,.04,bezel,0,-.27);
+        box(cx,1.24,z+.462,.54,.30,.035,'#1B293D',0,-.27);
+        for(const [i,offset] of [-.17,-.055,.055,.17].entries()){
+          box(cx+offset,1.247,z+.486,.055,.055,.016,pixels,i%2?0:Math.PI/4,-.27);
+        }
+        box(cx,1.16,z+.507,.29,.014,.014,bezel,0,-.27);
+        box(cx,1.54,z+.208,.77,.13,.37,dark);
+        box(cx,1.55,z+.402,.57,.06,.023,bezel);
+        box(cx,.925,z+.36,.76,.12,.37,dark,0,-.13);
+        cyl(cx-.23,.994,z+.383,.115,.022,.108,dark);
+        cyl(cx-.23,1.033,z+.383,.031,.077,.031,bezel);
+        orb(cx-.23,1.081,z+.383,.078,.077,.078,pixels);
+        for(const [i,dx] of [.02,.15,.28].entries())cyl(cx+dx,.996+(i%2)*.006,z+.408,.067,.031,.067,i===1?bezel:pixels);
+        box(cx,.51,z+.492,.22,.22,.032,dark);
+        box(cx,.559,z+.51,.099,.024,.015,bezel);
+        box(cx,.457,z+.51,.065,.042,.015,'#0F2132');
+      };
+      cabinet(x-.52,'#3B5D78','#82D2C7','#FFE29C');
+      cabinet(x+.52,'#76546A','#E1A487','#CBE7F3');
+      return;
+    }
+    if(key==='quiz'){
+      const base='#354D66',metal='#5A7188',glow='#BEE3D7';
+      world.add('arcadeCabinet',x,.64,z,1.85,1.28,.88,base);
+      box(x,.085,z,1.91,.15,.93,'#28394C');
+      box(x,.33,z+.45,1.45,.34,.035,metal);
+      box(x,.33,z+.475,1.29,.045,.016,glow);
+      box(x,1.155,z+.17,1.76,.17,.59,metal,0,-.16);
+      box(x,1.49,z-.113,1.59,.62,.16,base,0,-.15);
+      box(x,1.49,z-.021,1.41,.49,.045,'#202F49',0,-.15);
+      for(const [i,width] of [.69,.56,.63].entries()){
+        const y=1.60-i*.11;
+        box(x-.47,y,z+.014+i*.015,.07,.058,.017,i===0?'#F3BE82':glow);
+        box(x-.33+width/2,y,z+.014+i*.015,width,.026,.015,i===0?glow:'#708FAA');
+      }
+      for(const [i,dx] of [-.34,-.11,.12,.35].entries())cyl(x+dx,1.267,z+.298,.105,.036,.105,i===0?'#E5AF83':glow);
+      return;
+    }
     box(x,.46,z,1.85,.87,.84,frame);
     box(x,.48,z+.426,1.52,.45,.05,trim);
     box(x,.93,z,1.99,.14,1.02,light);
-    if(key==='quiz'){
-      for(const dx of [-.62,.62])box(x+dx,1.29,z-.37,.075,.65,.075,frame);
-      box(x,1.48,z-.36,1.47,.63,.115,frame);
-      box(x,1.48,z-.284,1.27,.47,.055,trim);
-      for(let i=0;i<3;i++)box(x-.33+i*.32,1.46,z-.248,.23,.035,.02,'#F8E7C5');
-    }else if(key==='arcade'){
-      for(const dx of [-.50,.50]){
-        box(x+dx,1.29,z-.14,.66,.62,.40,trim,0,-.12);
-        box(x+dx,1.36,z+.061,.48,.31,.035,'#394859',0,-.12);
-        box(x+dx,1.12,z+.14,.56,.08,.33,light,0,-.15);
-        orb(x+dx+.13,1.18,z+.21,.10,.11,.10,accent);
-      }
-    }else{
-      for(const dx of [-.66,.66])box(x+dx,1.23,z-.3,.071,.54,.071,frame);
-      box(x,1.53,z-.30,1.45,.055,.067,frame);
-      for(let j=0;j<3;j++){
-        const dx=(j-1)*.41;
-        world.add('jacket',x+dx,1.24,z-.23,.36,.44,.12,['#A4A9D7','#E6A889',trim][j],0,0,.08*(j-1));
-      }
+    for(const dx of [-.66,.66])box(x+dx,1.23,z-.3,.071,.54,.071,frame);
+    box(x,1.53,z-.30,1.45,.055,.067,frame);
+    for(let j=0;j<3;j++){
+      const dx=(j-1)*.41;
+      world.add('jacket',x+dx,1.24,z-.23,.36,.44,.12,['#A4A9D7','#E6A889',trim][j],0,0,.08*(j-1));
     }
   };
 

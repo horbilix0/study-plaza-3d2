@@ -1,3 +1,4 @@
+import {relayRoles,relayRounds,relaySymbols} from './signal-relay.js';
 import {changeFocus,focusMinutes,focusState} from './study-focus.js';
 import {ExamHub} from './exam-hub.js';
 import {avatarOptions,cleanAvatar,sceneLayout} from './plaza-shared.js';
@@ -5,7 +6,7 @@ import {PlazaWorld,presets} from './world.js';
 const $=(s,b=document)=>b.querySelector(s), $$=(s,b=document)=>[...b.querySelectorAll(s)];
 const safe=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const state={solo:false,room:null,id:null,code:null,name:'',events:null,world:null,panel:null,scene:'garden',lastRev:-1,quizSubject:'kimya',lessonId:null,lessonEditing:false,labModel:'rutherford',game:null,math:null,star:null,starEnd:0};
-const gameInfo=[{id:'memory',emoji:'🃏',name:'Memory Flip',desc:'12 kartı eşleştir, hafızanı çalıştır.',players:'Tek kişilik'},{id:'math',emoji:'⚡',name:'Math Blitz',desc:'30 saniyede doğru işlem yağmuru!',players:'Tek kişilik'},{id:'stars',emoji:'🌟',name:'Star Dash 3D',desc:'Dünyaya dağılan 12 yıldızı topla.',players:'3D hareket'},{id:'ttt',emoji:'⭕',name:'XO Düellosu',desc:'Arkadaşına karşı sıra tabanlı düello.',players:'2 kişilik · canlı'}];
+const gameInfo=[{id:'relay',emoji:'✦',name:'Sinyal Zinciri',desc:'Kodları arkadaşına aktar, üç turu birlikte geç.',players:'2 kişilik · yeni'},{id:'memory',emoji:'🃏',name:'Memory Flip',desc:'12 kartı eşleştir, hafızanı çalıştır.',players:'Tek kişilik'},{id:'math',emoji:'⚡',name:'Math Blitz',desc:'30 saniyede doğru işlem yağmuru!',players:'Tek kişilik'},{id:'stars',emoji:'🌟',name:'Star Dash 3D',desc:'Dünyaya dağılan 12 yıldızı topla.',players:'3D hareket'},{id:'ttt',emoji:'⭕',name:'XO Düellosu',desc:'Arkadaşına karşı sıra tabanlı düello.',players:'2 kişilik · canlı'}];
 const hats={none:['Şapkasız','🙂',0],cap:['Şapka','🧢',0],beanie:['Bere','🧶',25],star:['Yıldız','⭐',50],crown:['Taç','👑',100],wizard:['Büyücü','🪄',150]};
 const swatches={mint:'#6FC4AD',peach:'#E8A0AC',blue:'#80ADDF',lilac:'#B7A3E9',yellow:'#EFCB7D'};
 const atom={dalton:['Dalton','İçi dolu bir küre. Atomun iç yapısı bilinmiyordu.','Dolu küre'],thomson:['Thomson','Pozitif yük içine negatif elektronların dağıldığı model. Çekirdek yok.','Üzümlü kek'],rutherford:['Rutherford','Atomun büyük kısmı boşluktur, ortada pozitif çekirdek vardır.','Altın levha'],bohr:['Bohr','Elektronlar belirli enerji düzeylerinde bulunur.','Katmanlar'],modern:['Modern atom','Kesin elektron yörüngesi yerine bulunma olasılığı yüksek orbitaller.','Elektron bulutu']};
@@ -178,7 +179,7 @@ function subscribe(){
   state.events.onerror=()=>{$('#bottom-hint').textContent='Bağlantı tekrar kuruluyor...';};
 }
 
-function receive(room){const oldScene=state.scene;state.room=room;state.world?.setMembers(room.members,state.id);state.scene=room.scene||'garden';if(state.scene!==oldScene||!$('#app').dataset.scene){state.world?.setScene(state.scene);state.world?.setStarHunt(false);state.star=null;$('#app').dataset.scene=state.scene;}if(room.revision!==state.lastRev){state.lastRev=room.revision;refreshUI();refreshNameLabels();if(state.panel==='closet'&&previewMember&&me()?.hat!==previewMember.hat){const draft=previewMember.avatar;renderDrawer();if(draft){previewMember.avatar=draft;for(const [k,v] of Object.entries(draft))$('#avatar-form').elements[k].value=v;}}else if(state.panel&&!hubPanes.has(state.panel)&&state.panel!=='closet')renderDrawer();}tickTimer()}
+function receive(room){const oldScene=state.scene,oldRelay=state.room?.relay;state.room=room;if(room.relay?.status==='waiting'&&room.relay.key!==oldRelay?.key&&!room.relay.players.includes(state.id))toast('Sinyal Zinciri lobisi açıldı · Mola');state.world?.setMembers(room.members,state.id);state.scene=room.scene||'garden';if(state.scene!==oldScene||!$('#app').dataset.scene){state.world?.setScene(state.scene);state.world?.setStarHunt(false);state.star=null;$('#app').dataset.scene=state.scene;}if(room.revision!==state.lastRev){state.lastRev=room.revision;refreshUI();refreshNameLabels();if(state.panel==='closet'&&previewMember&&me()?.hat!==previewMember.hat){const draft=previewMember.avatar;renderDrawer();if(draft){previewMember.avatar=draft;for(const [k,v] of Object.entries(draft))$('#avatar-form').elements[k].value=v;}}else if(state.panel&&!hubPanes.has(state.panel)&&state.panel!=='closet')renderDrawer();}tickTimer()}
 function stationPanel(id){
   return {study:'study',quiz:'quiz',arcade:'arcade',closet:'closet'}[id];
 }
@@ -210,6 +211,12 @@ function refreshUI(){
   tickTimer();
 }
 function tickTimer(){
+  const relayClock=$('#relay-clock');
+  if(relayClock&&state.room?.relay?.status==='playing'){
+    const seconds=Math.max(0,Math.ceil((state.room.relay.deadline-Date.now())/1000));
+    relayClock.textContent=seconds+' sn';
+    if(!seconds)for(const key of $('[data-relay-symbol]'))key.disabled=true;
+  }
   const t=state.room?.timer;
   if(!t)return;
   const seconds=t.running?Math.max(0,Math.ceil((t.endsAt-Date.now())/1000)):t.remaining;
@@ -278,8 +285,60 @@ function renderQuiz(box){const q=state.room.quiz;if(!q){box.innerHTML=`<p class=
  let question=q.current;if(!question){box.innerHTML='<div class="white-card">Soru bulunamadı.</div>';return;}
  box.innerHTML=`<div class="white-card"><div class="section-top"><span class="section-label">SORU ${q.idx+1} / ${q.total} · ${safe(q.subject.toUpperCase())}</span><span class="tag">${q.submitted}/${state.room.members.length} yanıt</span></div><div class="question-block">${safe(question.q)}</div>${question.options.map((opt,i)=>{let cl=q.revealed?(i===question.correct?'right':q.myChoice===i?'wrong':''):q.myChoice===i?'selected':'';return `<button data-choice="${i}" class="quiz-option ${cl}" ${q.revealed||q.myChoice!==null?'disabled':''}>${String.fromCharCode(65+i)}. ${safe(opt)} ${q.myChoice===i?'✓':''}</button>`}).join('')}${q.revealed?`<div class="answer-strip">✅ Doğru cevap: ${String.fromCharCode(65+question.correct)}<br>${safe(question.explanation||'Birlikte değerlendirin.')}</div>`:q.myChoice!==null?'<p class="panel-note">Cevabın gönderildi, arkadaşlarını bekle.</p>':''}<div class="quiz-actions">${q.revealed?'<button class="pill-action" data-action="quiz-next">Sonraki soru →</button>':'<button class="pill-action" data-action="quiz-reveal">Cevapları açıkla</button>'}<button class="pill-action secondary" data-action="quiz-stop">Bitir</button></div></div>`;
 }
-function renderArcade(box){const game=state.game;if(!game){box.innerHTML=`<p class="muted">3D plazada mola zamanı! Mini oyunlar odaklanma aralarında eğlenmek için tasarlandı. XO Düellosu oda arkadaşınla gerçek zamanlı oynanır.</p><div class="game-grid">${gameInfo.map(g=>`<button class="arcade-card" data-game="${g.id}"><span class="arcade-emoji">${g.emoji}</span><h3>${g.name}</h3><p>${g.desc}</p><small>${g.players} ↗</small></button>`).join('')}</div><div class="panel-note">🎯 Study Coins, odak turları ve bilgi quizlerinden kazanılır. Mini oyunlarda sınırsız coin kasılmaz.</div>`;return;}
+function relayChat(){
+ const messages=state.room.messages.slice(-8);
+ return `<div class="white-card room-chat relay-chat"><h3>Takım iletişimi</h3><div class="chat-feed" role="log" aria-label="Oda sohbeti">${messages.map(m=>`<div class="msg"><b>${safe(m.by)}</b> ${safe(m.message)}${state.room.hostId===state.id&&m.authorId?` <button class="chevron-btn" type="button" data-remove-message="${safe(m.id)}" aria-label="Mesajı kaldır">×</button>`:''}</div>`).join('')}</div><form id="room-chat-form" class="chat-form"><input name="message" maxlength="360" placeholder="Sembolleri sırayla yaz…" aria-label="Mesaj" required><button type="submit" aria-label="Gönder">↑</button></form></div>`;
+}
+function renderRelay(box,back){
+ const game=state.room.relay;
+ const participant=game?.players.includes(state.id);
+ const name=id=>safe(state.room.members.find(m=>m.id===id)?.name||'Oyuncu');
+ let content='', chat='';
+ if(game?.status==='playing'){
+  const {caller,solver}=relayRoles(game);
+  const isCaller=caller===state.id,isSolver=solver===state.id;
+  const seconds=Math.max(0,Math.ceil((game.deadline-Date.now())/1000));
+  const sequence=game.sequence||[];
+  const symbol=id=>relaySymbols.find(s=>s.id===id);
+  const cells=Array.from({length:game.length},(_,i)=>{
+   const item=symbol(sequence[i]);
+   return `<span class="relay-slot ${i<game.progress?'is-filled':''}" ${item?`title="${item.name}"`:''}>${item?`<b>${item.glyph}</b><small>${item.name}</small>`:i<game.progress?'✓':i+1}</span>`;
+  }).join('');
+  content=`<div class="relay-meta"><span>Tur ${game.round+1}/${relayRounds}</span><span>${game.mistakes} hata</span><strong id="relay-clock">${seconds} sn</strong></div>
+   <h3>${isCaller?'Anlatıcı sensin':isSolver?'Çözücü sensin':'Tur devam ediyor'}</h3>
+   <p>${isCaller?`Sırayı ${name(solver)} ile sohbetten paylaş.`:isSolver?`${name(caller)} sırayı görüyor. Gelen sembollere sırayla bas.`:`${name(caller)} anlatıyor, ${name(solver)} çözüyor.`}</p>
+   <div class="relay-sequence" aria-label="Sembol sırası ve ilerleme">${cells}</div>
+   ${isSolver?`<div class="relay-keys">${relaySymbols.map(s=>`<button class="relay-key" data-relay-symbol="${s.id}" ${seconds?'':'disabled'}><b aria-hidden="true">${s.glyph}</b>${s.name}</button>`).join('')}</div>`:''}
+   ${participant?'<button class="relay-link" data-relay-action="leave">Oyundan ayrıl</button>':''}`;
+  if(participant)chat=relayChat();
+ }else if(game?.status==='waiting'){
+  content=`<h3>${participant?'Arkadaşın bekleniyor':name(game.players[0])+' bir lobi açtı'}</h3><p>${participant?'Arkadaşın aynı odada Mola → Sinyal Zinciri ekranından katılabilir.':'Katıldığında ilk tur başlar. İlk sırayı sen çözeceksin.'}</p>${participant?'<button class="relay-link" data-relay-action="leave">Lobiyi kapat</button>':'<button class="hub-button" data-relay-action="join">Oyuna katıl</button>'}`;
+ }else{
+  const ending={won:['Üç turu da geçtiniz!',`Takım sonucu · 3/3 tur · ${game?.mistakes||0} hata`],timeout:['Süre doldu',`Tamamlanan tur · ${game?.round||0}/3`],cancelled:['Oyun sona erdi','Oyunculardan biri ayrıldı.']}[game?.status];
+  content=`<h3>${ending?.[0]||'Biriniz görür, diğeriniz çözer'}</h3><p>${ending?.[1]||'Üç tur, her tur için 35 saniye. Doğru sırayı arkadaşına aktar ve her tur rol değiştir.'}</p><button class="hub-button" data-relay-action="join">${ending?'Yeni lobi aç':'Lobi aç'}</button>`;
+ }
+ const input=$('#room-chat-form input',box),draft=input?.value||'',focused=input===document.activeElement;
+ box.innerHTML=back+`<section class="relay-hero"><div class="relay-brand"><span aria-hidden="true">✦</span> TAKIM OYUNU · 2 KİŞİ</div>${content}</section>`+chat;
+ if(chat){
+  const next=$('#room-chat-form input',box);
+  next.value=draft;
+  if(focused)next.focus({preventScroll:true});
+  const feed=$('.relay-chat .chat-feed',box);
+  feed.scrollTop=feed.scrollHeight;
+ }
+}
+let relaySending=false;
+function handleRelay(button){
+ if(relaySending||button.disabled)return;
+ const action=button.dataset.relayAction,game=state.room.relay;
+ if(!action&&!game)return;
+ relaySending=true;
+ const request=action?send('relay:'+action):send('relay:input',{key:game.key,round:game.round,progress:game.progress,symbol:button.dataset.relaySymbol});
+ request.catch(()=>{}).finally(()=>{relaySending=false;});
+}
+function renderArcade(box){const game=state.game;if(!game){box.innerHTML=`<p class="muted">3D plazada mola zamanı! Mini oyunlar odaklanma aralarında eğlenmek için tasarlandı. Sinyal Zinciri ve XO Düellosu oda arkadaşınla gerçek zamanlı oynanır.</p><div class="game-grid">${gameInfo.map(g=>`<button class="arcade-card" data-game="${g.id}"><span class="arcade-emoji">${g.emoji}</span><h3>${g.name}</h3><p>${g.desc}</p><small>${g.players} ↗</small></button>`).join('')}</div><div class="panel-note">🎯 Study Coins, odak turları ve bilgi quizlerinden kazanılır. Mini oyunlarda sınırsız coin kasılmaz.</div>`;return;}
  let back=`<div class="game-top"><button class="game-back" data-game-back>← Oyunlara dön</button><span class="tag">${gameInfo.find(g=>g.id===game)?.name||'Mola'}</span></div>`;
+ if(game==='relay'){renderRelay(box,back);return;}
  if(game==='memory'){let g=state.memory;if(!g){startMemory();g=state.memory;}box.innerHTML=back+`<div class="white-card" style="text-align:center"><h3>🃏 Memory Flip</h3><p class="muted">Hamle: ${g.moves} · Eşleşme: ${g.matched.size/2}/6</p><div class="memory-grid">${g.cards.map((card,i)=>`<button class="memory-card ${g.open.includes(i)?'open':''} ${g.matched.has(i)?'matched':''}" data-memory="${i}" ${g.matched.has(i)?'disabled':''}>${g.open.includes(i)||g.matched.has(i)?card:'✿'}</button>`).join('')}</div>${g.matched.size===12?'<div class="answer-strip">🎉 Harika! Bütün kartları eşleştirdin.</div>':''}<button class="pill-action" data-memory-restart>Yeniden karıştır ↻</button></div>`;
  }else if(game==='math'){let g=state.math;if(!g){startMath();g=state.math;}let remain=Math.max(0,Math.ceil((g.end-Date.now())/1000));box.innerHTML=back+`<div class="white-card" style="text-align:center"><h3>⚡ Math Blitz</h3><div class="game-score">Skor: <b>${g.score}</b> · Kalan: <strong id="math-remaining">${remain}</strong> saniye</div>${remain?`<div class="math-prompt">${g.a} ${g.op} ${g.b} = ?</div><div>${g.options.map((o,i)=>`<button class="math-choice" data-math="${i}">${o}</button>`).join('')}</div>`:`<div style="font-size:50px">🏁</div><h2>Süre doldu!</h2><p>Skorun: ${g.score}</p><button class="pill-action" data-math-restart>Yeniden oyna</button>`}</div>`;
  }else if(game==='stars'){let g=state.star;if(!g){startStars();g=state.star;}let remain=Math.max(0,Math.ceil((state.starEnd-Date.now())/1000));box.innerHTML=back+`<div class="white-card" style="text-align:center"><div style="font-size:55px">🌟</div><h3>Star Dash 3D</h3><p>Plazada dolaşarak parlayan yıldızları topla.</p><div class="game-score">Yıldızlar: ${g.found}/12 · <strong id="star-remaining">${remain}</strong> saniye</div><div class="panel-note">W A S D ile hareket et. Yıldızlara yaklaşınca otomatik toplarsın.</div>${g.finished||remain===0?`<h3>Tur bitti! Toplanan yıldız: ${g.found}</h3><button class="pill-action" data-star-restart>Yeniden dene</button>`:'<button class="pill-action" data-arcade-close>Plazaya dön, yıldızları topla →</button>'}</div>`;
@@ -297,7 +356,7 @@ function handleStudy(e){let b=e.target.closest('button');if(!b)return;let prompt
  if(b.dataset.action==='save-notes')send('note:update',{notes:$('#notes-editor').value}).then(()=>toast('Pano kaydedildi!'));
 }
 function handleQuiz(e){let subj=e.target.closest('[data-quiz-subject]');if(subj){state.quizSubject=subj.dataset.quizSubject;renderDrawer();return;}let choice=e.target.closest('[data-choice]');if(choice){send('quiz:answer',{choice:Number(choice.dataset.choice)});return;}let b=e.target.closest('[data-action]');if(!b)return;let map={'quiz-start':'quiz:start','quiz-next':'quiz:next','quiz-reveal':'quiz:reveal','quiz-stop':'quiz:stop'};send(map[b.dataset.action],b.dataset.action==='quiz-start'?{subject:state.quizSubject}:{});}
-function handleArcade(e){let g=e.target.closest('[data-game]');if(g){state.game=g.dataset.game;if(state.game==='memory')startMemory();if(state.game==='math')startMath();if(state.game==='stars'){startStars();closePanel();return;}renderDrawer();return;}if(e.target.closest('[data-game-back]')){if(state.game==='stars')state.world?.setStarHunt(false);state.game=null;state.star=null;renderDrawer();return;}let b=e.target.closest('[data-memory]');if(b){let g=state.memory,i=Number(b.dataset.memory);if(!g||g.locked||g.open.includes(i)||g.matched.has(i))return;g.open.push(i);if(g.open.length===2){g.moves++;let [a,c]=g.open;if(g.cards[a]===g.cards[c]){g.matched.add(a);g.matched.add(c);g.open=[];}else{g.locked=true;setTimeout(()=>{g.open=[];g.locked=false;if(state.game==='memory'&&state.panel==='arcade')renderDrawer();},700);}}renderDrawer();return;}
+function handleArcade(e){const relay=e.target.closest('[data-relay-action],[data-relay-symbol]');if(relay){handleRelay(relay);return;}let g=e.target.closest('[data-game]');if(g){state.game=g.dataset.game;if(state.game==='memory')startMemory();if(state.game==='math')startMath();if(state.game==='stars'){startStars();closePanel();return;}renderDrawer();return;}if(e.target.closest('[data-game-back]')){if(state.game==='stars')state.world?.setStarHunt(false);state.game=null;state.star=null;renderDrawer();return;}let b=e.target.closest('[data-memory]');if(b){let g=state.memory,i=Number(b.dataset.memory);if(!g||g.locked||g.open.includes(i)||g.matched.has(i))return;g.open.push(i);if(g.open.length===2){g.moves++;let [a,c]=g.open;if(g.cards[a]===g.cards[c]){g.matched.add(a);g.matched.add(c);g.open=[];}else{g.locked=true;setTimeout(()=>{g.open=[];g.locked=false;if(state.game==='memory'&&state.panel==='arcade')renderDrawer();},700);}}renderDrawer();return;}
  if(e.target.closest('[data-memory-restart]')){startMemory();renderDrawer();return;}
  let math=e.target.closest('[data-math]');if(math){let g=state.math;if(Date.now()>=g.end)return;let choice=g.options[Number(math.dataset.math)];if(choice===g.answer){g.score++;toast('Doğru! +1 puan');}else toast('Olmadı, sonraki işlem!');Object.assign(g,makeMathQuestion());renderDrawer();return;}
  if(e.target.closest('[data-math-restart]')){startMath();renderDrawer();return;}

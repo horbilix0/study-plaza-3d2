@@ -1,0 +1,25 @@
+.arcade-card[data-game=relay]{background:#19304a;color:#f5fbff;border-color:#47718c}
+.arcade-card[data-game=relay] :is(h3,p,small){color:inherit}
+.arcade-card[data-game=relay] .arcade-emoji{color:#f9ce80}
+.relay-hero{padding:clamp(18px,4vw,30px);border-radius:22px;background:radial-gradient(ellipse at 94% 0%,#345979,transparent 60%),#172b44;color:#f5faff;box-shadow:0 12px 28px #1221392b}
+.relay-brand{display:flex;align-items:center;gap:.55rem;color:#ffdc98;font-weight:800;font-size:.73rem;letter-spacing:.13em}
+.relay-brand span{display:grid;place-items:center;width:30px;height:30px;border:1px solid #ffffff45;border-radius:10px;font-size:1rem}
+.relay-hero h3{margin:16px 0 5px;color:inherit;font-size:clamp(1.25rem,4vw,1.65rem)}
+.relay-hero p{margin:0 0 16px;color:#d6e4ef;line-height:1.55}
+.relay-meta{display:flex;flex-wrap:wrap;gap:7px;margin-top:14px;align-items:center}
+.relay-meta span,.relay-meta strong{padding:5px 9px;border-radius:8px;background:#ffffff17;font-size:.78rem}
+.relay-meta strong{color:#ffdc98;font-variant-numeric:tabular-nums;margin-left:auto}
+.relay-sequence,.relay-keys{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:clamp(4px,1.6vw,10px);margin:14px 0}
+.relay-slot,.relay-key{min-width:0;min-height:53px;display:grid;justify-items:center;align-content:center;gap:1px;border-radius:11px;text-align:center}
+.relay-slot{background:#ffffff10;border:1px solid #ffffff4a;color:#e2ecf3}
+.relay-slot b,.relay-key b{font-size:1.4rem;line-height:1}
+.relay-slot small{font-size:clamp(.55rem,2.5vw,.72rem)}
+.relay-slot.is-filled{background:#215957;border-color:#79d5bb;color:#e2ffef}
+.relay-key{min-height:57px;padding:5px 1px;border:1px solid #b8d1dc;background:#e9f5f9;color:#182e48;font:inherit;font-size:clamp(.64rem,2.5vw,.88rem);font-weight:800;cursor:pointer;transition:background .16s,transform .16s}
+.relay-key:hover{background:#fff2d9}
+.relay-key:active{transform:scale(.96)}
+.relay-key:disabled{opacity:.54;cursor:default}
+.relay-link{min-height:42px;padding:0 6px;color:#d8e8f6;background:transparent;border:0;text-decoration:underline;cursor:pointer}
+.relay-chat{margin-top:14px}
+.relay-chat .chat-feed{max-height:145px;overflow:auto}
+@media(prefers-reduced-motion:reduce){.relay-key{transition:none}}

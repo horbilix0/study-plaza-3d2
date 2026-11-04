@@ -1,3 +1,4 @@
+import {expireRelay,relayInput,relayLobby,relayView,startRelay} from './signal-relay.js';
 import {canStand,cleanAvatar,reachable,sceneLayout} from './plaza-shared.js';
 import http from 'node:http';
 import fs from 'node:fs';
@@ -50,7 +51,7 @@ const newMember=name=>({id:freshPlayerId(),token:freshToken(),name:clean(name,20
 
 const questionList = (room, subject) => subject === 'custom' ? (room.customQuestions || []) : (QUIZZES[subject] || []);
 function roomView(room, viewerId){
-  const view = {...room, members:room.members.map(publicMember), customQuestions:undefined};
+  const view = {...room, members:room.members.map(publicMember), relay:relayView(room.relay,viewerId), customQuestions:undefined};
   if(room.quiz){
     const quiz=room.quiz, questions=questionList(room,quiz.subject), q=questions[quiz.idx];
     view.quiz={subject:quiz.subject,idx:quiz.idx,revealed:quiz.revealed,complete:quiz.complete,submitted:Object.keys(quiz.answers).length,myChoice:quiz.answers[viewerId]??null,total:questions.length,
@@ -128,6 +129,27 @@ function applyAction(room, member, data){
   for(const p of room.members){if(p.seat||!canStand(p.x,p.z,room.scene)){p.x=0;p.z=3;p.seat=null;p.pose='idle';}}
   break;
  }
+ case 'relay:join':{
+  room.relay=expireRelay(room.relay,now());
+  if(room.relay?.status==='playing')throw fail(409,'Odadaki tur devam ediyor.');
+  if(room.relay?.status==='waiting'){
+   const next=startRelay(room.relay,member.id,now(),crypto.randomInt);
+   if(!next)return;
+   room.relay=next;
+  }else room.relay=relayLobby(crypto.randomUUID(),member.id);
+  break;
+ }
+ case 'relay:input':{
+  const next=relayInput(room.relay,member.id,data,now(),crypto.randomInt);
+  if(!next)throw fail(409,'Bu hamle artık geçerli değil.');
+  room.relay=next;break;
+ }
+ case 'relay:leave':{
+  if(!room.relay?.players.includes(member.id))return;
+  if(room.relay.status==='waiting')room.relay=null;
+  else if(room.relay.status==='playing')room.relay={...room.relay,status:'cancelled'};
+  break;
+ }
  case 'game:ttt:start':{
   const rival=room.members.find(m=>m.id!==member.id);
   if(!rival)throw fail(400,'Bu oyun için odada iki kişi olmalı');
@@ -149,7 +171,7 @@ function applyAction(room, member, data){
   room.game={type:'ttt',board:Array(9).fill(''),players:g?.players?.length===2?g.players:[],turn:'X',winner:null};break;
  }
 
- case 'room:leave':{room.members=room.members.filter(m=>m.id!==member.id);if(room.hostId===member.id)room.hostId=room.members[0]?.id||null;if(room.game?.players?.includes(member.id))room.game={type:'ttt',board:Array(9).fill(''),players:[],turn:'X',winner:null};break;}
+ case 'room:leave':{if(room.relay?.players.includes(member.id)){if(room.relay.status==='waiting')room.relay=null;else if(room.relay.status==='playing')room.relay={...room.relay,status:'cancelled'};}room.members=room.members.filter(m=>m.id!==member.id);if(room.hostId===member.id)room.hostId=room.members[0]?.id||null;if(room.game?.players?.includes(member.id))room.game={type:'ttt',board:Array(9).fill(''),players:[],turn:'X',winner:null};break;}
  case 'topic:add':{
   const s=room.subjects.find(x=>x.id===data.subject); if(!s)throw fail(400,'Ders bulunamadı');
   const title=clean(data.title,65), desc=clean(data.description,160); if(!title)throw fail(400,'Konu adı gerekli');
@@ -273,6 +295,8 @@ function applyAction(room, member, data){
 }
 function checkTimers(){
  for(const room of rooms.values()){
+  const relay=expireRelay(room.relay,now());
+  if(relay!==room.relay){room.relay=relay;emit(room);}
   const t=room.timer;
   if(!t.running||!t.endsAt||t.endsAt>now())continue;
   t.running=false;t.endsAt=null;
@@ -289,7 +313,7 @@ function checkTimers(){
 }
 setInterval(checkTimers,1000).unref();
 setInterval(()=>{for(const [code,room] of rooms){if(now()-room.updatedAt>1000*60*60*24*30){rooms.delete(code);listeners.delete(code);}}},1000*60*60).unref();
-const staticFiles=new Set(['/index.html','/style.css','/exam-hub.css','/app.js','/world.js','/campus-map.js','/campus-ui.css','/study-upgrade.css','/study-focus.js','/plaza-avatar.js','/plaza-shared.js','/exam-data.js','/exam-lessons.js','/exam-hub.js']);
+const staticFiles=new Set(['/index.html','/style.css','/exam-hub.css','/app.js','/world.js','/campus-map.js','/campus-ui.css','/study-upgrade.css','/study-focus.js','/signal-relay.js','/campus-signal.css','/plaza-avatar.js','/plaza-shared.js','/exam-data.js','/exam-lessons.js','/exam-hub.js']);
 const mime={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.png':'image/png','.svg':'image/svg+xml','.ico':'image/x-icon'};
 async function getBody(req){let text='';for await (const chunk of req){text+=chunk;if(text.length>MAX_BODY)throw fail(413,'İstek çok uzun');}try{return JSON.parse(text||'{}');}catch{throw fail(400,'Geçersiz veri');}}
 const server=http.createServer(async(req,res)=>{
