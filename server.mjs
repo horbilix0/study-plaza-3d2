@@ -1,4 +1,4 @@
-import {canStand,cleanAvatar,reachable,seats} from './plaza-shared.js';
+import {canStand,cleanAvatar,reachable,sceneLayout} from './plaza-shared.js';
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -125,7 +125,7 @@ function applyAction(room, member, data){
   if(room.hostId!==member.id) throw fail(403,'Ortamı yalnızca oda kurucusu değiştirebilir');
   if(!['garden','library','beach','moon'].includes(data.scene))throw fail(400,'Geçersiz ortam');
   room.scene=data.scene;
-  for(const p of room.members)if(!canStand(p.x,p.z,room.scene)){p.x=0;p.z=3;p.seat=null;p.pose='idle';}
+  for(const p of room.members){if(p.seat||!canStand(p.x,p.z,room.scene)){p.x=0;p.z=3;p.seat=null;p.pose='idle';}}
   break;
  }
  case 'game:ttt:start':{
@@ -177,7 +177,7 @@ function applyAction(room, member, data){
   if(data.seat===null){
    member.seat=null;member.pose='idle';break;
   }
-  const seat=seats.find(s=>s.id===data.seat);
+  const seat=sceneLayout(room.scene).seats.find(s=>s.id===data.seat);
   if(!seat||Math.hypot(member.x-seat.x,member.z-seat.z)>1.2)throw fail(400,'Oturmak için sandalyeye yaklaş.');
   if(room.members.some(p=>p!==member&&p.seat===seat.id))throw fail(409,'Bu sandalye dolu.');
   Object.assign(member,{seat:seat.id,x:seat.x,z:seat.z,heading:seat.yaw,jump:0,pose:'sit'});break;
@@ -289,7 +289,7 @@ function checkTimers(){
 }
 setInterval(checkTimers,1000).unref();
 setInterval(()=>{for(const [code,room] of rooms){if(now()-room.updatedAt>1000*60*60*24*30){rooms.delete(code);listeners.delete(code);}}},1000*60*60).unref();
-const staticFiles=new Set(['/index.html','/style.css','/exam-hub.css','/app.js','/world.js','/plaza-avatar.js','/plaza-shared.js','/exam-data.js','/exam-lessons.js','/exam-hub.js']);
+const staticFiles=new Set(['/index.html','/style.css','/exam-hub.css','/app.js','/world.js','/campus-map.js','/campus-ui.css','/plaza-avatar.js','/plaza-shared.js','/exam-data.js','/exam-lessons.js','/exam-hub.js']);
 const mime={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.png':'image/png','.svg':'image/svg+xml','.ico':'image/x-icon'};
 async function getBody(req){let text='';for await (const chunk of req){text+=chunk;if(text.length>MAX_BODY)throw fail(413,'İstek çok uzun');}try{return JSON.parse(text||'{}');}catch{throw fail(400,'Geçersiz veri');}}
 const server=http.createServer(async(req,res)=>{

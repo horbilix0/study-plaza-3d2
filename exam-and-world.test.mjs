@@ -4,6 +4,8 @@ import {getScope,subjects} from './exam-data.js';
 import {buildExam,commonRows,studyPlan,todayKey} from './exam-hub.js';
 import {lessonFor} from './exam-lessons.js';
 import {avatarOptions,canStand,cleanAvatar,reachable,seats,walk} from './plaza-shared.js';
+import {maps} from './plaza-shared.js';
+import {buildCampus} from './campus-map.js';
 
 const scope=(subject,written=1,term=1)=>getScope({grade:9,subject,written,term});
 test('Every included MEB scenario has a source, lesson, exact distribution and unique questions',()=>{
@@ -67,8 +69,8 @@ test('Numerical worked examples agree with independent calculations',()=>{
 test('Walls and furniture block walking, seats remain reachable, and avatar input is whitelisted',()=>{
  assert.equal(canStand(NaN,3,'garden'),false);
  assert.equal(reachable({x:0,z:0},{x:0,z:-6},'garden'),false);
- assert.equal(reachable({x:0,z:0},{x:0,z:-6},'moon'),true);
- assert.equal(canStand(-5.5,-3,'library'),false);
+ assert.equal(reachable({x:3,z:0},{x:3,z:-6},'moon'),true);
+ assert.equal(canStand(-5.8,-1.4,'library'),false);
  for(const seat of seats)assert.equal(canStand(seat.x,seat.z,'garden'),true);
  const point={x:0,z:-1.65};
  walk(point,0,-.2,'garden');
@@ -78,4 +80,23 @@ test('Walls and furniture block walking, seats remain reachable, and avatar inpu
  assert.equal(avatar.expression,'surprised');
  assert.equal(avatar.outfit,'hoodie');
  assert.ok(Object.hasOwn(avatarOptions.hairColor,avatar.hairColor));
+});
+
+test('Four distinct campuses keep their spawn, seats and station approaches usable',()=>{
+ const layouts=new Set();
+ for(const [id,map] of Object.entries(maps)){
+  assert.equal(canStand(0,3,id),true);
+  for(const seat of map.seats)assert.equal(canStand(seat.x,seat.z,id),true);
+  assert.equal(map.stations.length,4);
+  for(const station of map.stations){
+   assert.equal(canStand(station.x,station.z,id),false);
+   assert.equal(canStand(station.x,station.z+1.27,id),true);
+  }
+  const positions=[];
+  const record=(...args)=>positions.push(args);
+  buildCampus({add:record,ball:record,cone:record},id);
+  assert.ok(positions.length>=160, id);
+  layouts.add(JSON.stringify(map.stations.map(({x,z})=>[x,z])));
+ }
+ assert.equal(layouts.size,4);
 });

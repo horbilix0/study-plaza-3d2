@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node server.mjs",
     "dev": "node --watch server.mjs",
-    "check": "node --check app.js && node --check world.js && node --check plaza-avatar.js && node --check plaza-shared.js && node --check exam-hub.js && node --check exam-data.js && node --check exam-lessons.js && node --check server.mjs",
+    "check": "node --check app.js && node --check world.js && node --check campus-map.js && node --check plaza-avatar.js && node --check plaza-shared.js && node --check exam-hub.js && node --check exam-data.js && node --check exam-lessons.js && node --check server.mjs",
     "test": "node --test exam-and-world.test.mjs"
   },
   "engines": {
