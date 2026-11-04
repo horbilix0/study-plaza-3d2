@@ -1,3 +1,4 @@
+import {canStand,cleanAvatar,reachable,seats} from './plaza-shared.js';
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -6,10 +7,11 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT || 4173);
-const STORE = path.join(ROOT, 'data', 'rooms.json');
+const STORE = process.env.PLAZA_ROOM_STORE || path.join(ROOT, 'data', 'rooms.json');
 const MAX_BODY = 96_000;
 const rooms = new Map();
 const listeners = new Map();
+const publicMember=({token,lastChat,lastMove,moveSequence,...member})=>member;
 const roomSave = () => {
   fs.mkdirSync(path.dirname(STORE), { recursive: true });
   const obj = Object.fromEntries(rooms);
@@ -22,7 +24,10 @@ try {
   for (const [k, v] of Object.entries(saved)) {
     if (v && /^[A-Z0-9]{6}$/.test(k)) {
       v.customQuestions ||= []; v.examPeriod ||= 'Kasım Yazılıları'; v.scene||='garden'; v.hostId ||= v.members?.[0]?.id; v.game ||= {type:'ttt',board:Array(9).fill(''),players:[],turn:'X',winner:null};
-      for (const m of v.members ?? []) m.ownedHats ||= ['none','cap'];
+      for (const m of v.members ?? []) {
+        m.ownedHats ||= ['none','cap'];
+        if(!canStand(m.x,m.z,v.scene)){m.x=0;m.z=3;m.seat=null;m.pose='idle';}
+      }
       if (v.timer?.running && v.timer.endsAt < Date.now()) {
         v.timer.running = false; v.timer.remaining = v.timer.phase === 'break' ? 5 * 60 : 25 * 60;
       }
@@ -40,10 +45,12 @@ const clean = (s, max = 100) => String(s ?? '').trim().replace(/[\x00-\x1f\x7f]/
 const codeCreate = () => {let s; do { s=Array.from(crypto.randomBytes(6), b=>'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[b % 32]).join(''); } while(rooms.has(s)); return s;};
 const now = () => Date.now();
 const freshPlayerId = () => crypto.randomUUID();
+const freshToken = () => crypto.randomBytes(24).toString('hex');
+const newMember=name=>({id:freshPlayerId(),token:freshToken(),name:clean(name,20)||'Öğrenci',hat:'none',skin:'mint',coins:0,ownedHats:['none','cap'],seen:now(),x:0,z:3,heading:0,pose:'idle',focusSeconds:0,focusRounds:0});
 
 const questionList = (room, subject) => subject === 'custom' ? (room.customQuestions || []) : (QUIZZES[subject] || []);
 function roomView(room, viewerId){
-  const view = {...room, members:room.members.map(m=>({...m})), customQuestions:undefined};
+  const view = {...room, members:room.members.map(publicMember), customQuestions:undefined};
   if(room.quiz){
     const quiz=room.quiz, questions=questionList(room,quiz.subject), q=questions[quiz.idx];
     view.quiz={subject:quiz.subject,idx:quiz.idx,revealed:quiz.revealed,complete:quiz.complete,submitted:Object.keys(quiz.answers).length,myChoice:quiz.answers[viewerId]??null,total:questions.length,
@@ -52,9 +59,11 @@ function roomView(room, viewerId){
   }
   return view;
 }
-const broadcast = room => {
-  for (const session of listeners.get(room.code) ?? []) {
-    try {session.res.write(`event: state\ndata: ${JSON.stringify(roomView(room,session.memberId))}\n\n`);} catch {}
+const broadcastMotion = (room,member) => {
+  const {id,x,z,jump,heading,pose,seat}=member;
+  const event='event: motion\ndata: '+JSON.stringify({id,x,z,jump,heading,pose,seat})+'\n\n';
+  for(const session of listeners.get(room.code)??[]){
+    if(session.memberId!==id&&!session.res.writableNeedDrain)session.res.write(event);
   }
 };
 const emit = room => {
@@ -64,12 +73,12 @@ const emit = room => {
   }
 };
 function ensureRoom(code) {const r=rooms.get(clean(code, 6).toUpperCase()); if(!r) throw fail(404, 'Oda bulunamadı. Kodu kontrol et.'); return r;}
-function ensureMember(room,id){const member=room.members.find(m=>m.id===id); if(!member) throw fail(403,'Önce odaya katılmalısın.'); member.seen=now();return member;}
+function ensureMember(room,id){const member=room.members.find(m=>m.token===id&&typeof id==='string'&&id.length>0); if(!member) throw fail(403,'Önce odaya katılmalısın.'); member.seen=now();return member;}
 const presetSubjects = [
   {id:'kimya',name:'Kimya',icon:'⚗️',topics:[['atom','Atom modelleri','Dalton, Thomson, Rutherford ve Bohr'],['orbitaller','Orbitaller','s, p, d, f türleri ve enerji'],['guvenlik','Kimyasal güvenlik','Etiketler ve laboratuvar kuralları']]},
   {id:'tarih',name:'Tarih',icon:'🏛️',topics:[['tarih-yarari','Tarih öğrenmenin faydaları','Kimlik, neden-sonuç ve eleştirel düşünme'],['kaynaklar','Tarihsel kaynaklar','Birinci ve ikinci el kaynaklar']]}
 ];
-function createRoom(name){const code=codeCreate();const id=freshPlayerId();const t=now();const room={code,createdAt:t,updatedAt:t,revision:1,hostId:id,scene:'garden',game:{type:'ttt',board:Array(9).fill(''),players:[],turn:'X',winner:null},examPeriod:'Kasım Yazılıları',customQuestions:[],members:[{id,name:clean(name,20)||'Öğrenci',hat:'none',skin:'mint',coins:0,ownedHats:['none','cap'],seen:t,x:0,z:3}],subjects:presetSubjects.map(s=>({...s,topics:s.topics.map(t=>({id:t[0],title:t[1],description:t[2],done:false}))})),notes:'Hedefimiz: Beraber öğrenmek, beraber başarmak! ✨',messages:[{id:crypto.randomUUID(),by:'Sistem',message:'Oda açıldı! Ders çalışmaya hazır mısınız? 🌤️',time:t}],timer:{phase:'focus',duration:25*60,remaining:25*60,running:false,endsAt:null,round:0},quiz:null}; rooms.set(code,room);emit(room);return{code,playerId:id,room};}
+function createRoom(name){const code=codeCreate();const member=newMember(name),id=member.id;const t=now();const room={code,createdAt:t,updatedAt:t,revision:1,hostId:id,scene:'garden',game:{type:'ttt',board:Array(9).fill(''),players:[],turn:'X',winner:null},examPeriod:'Kasım Yazılıları',customQuestions:[],members:[member],subjects:presetSubjects.map(s=>({...s,topics:s.topics.map(t=>({id:t[0],title:t[1],description:t[2],done:false}))})),notes:'Hedefimiz: Beraber öğrenmek, beraber başarmak! ✨',messages:[{id:crypto.randomUUID(),by:'Sistem',message:'Oda açıldı! Ders çalışmaya hazır mısınız? 🌤️',time:t}],timer:{phase:'focus',duration:25*60,remaining:25*60,running:false,endsAt:null,round:0},quiz:null}; rooms.set(code,room);emit(room);return{code,playerId:id,token:member.token,room:roomView(room,id)};}
 const QUIZZES={
  kimya:[
   {q:'Atomu içi dolu, bölünemez küre olarak açıklayan model?',options:['Dalton','Thomson','Rutherford','Bohr'],correct:0,explanation:'Dalton modeli atomu bilye gibi düşünür.'},
@@ -90,19 +99,34 @@ const QUIZZES={
 function applyAction(room, member, data){
  const type=clean(data.type,40);
  if(type==='member:move'){
-   const x=Number(data.x),z=Number(data.z);
-   if(Number.isFinite(x)&&Number.isFinite(z)){
-     const t=now(); if(!member.lastMove||t-member.lastMove>=75){
-       member.x=Math.max(-9,Math.min(9,x));member.z=Math.max(-9,Math.min(9,z));member.lastMove=t; broadcast(room);
-     }
+   const {x,z,jump,heading,pose}=data;
+   if(![x,z,jump,heading].every(Number.isFinite))throw fail(400,'Geçersiz hareket verisi');
+   const t=now(),elapsed=t-(member.lastMove||0);
+   if(elapsed<65)return;
+   if(member.seat){
+     member.pose=['study','wave','emote'].includes(pose)?pose:'sit';
+     member.lastMove=t;broadcastMotion(room,member);return;
    }
-   return;
+   const from={x:member.x,z:member.z},to={x,z};
+   const budget=Math.min(2.3,.26+Math.max(.12,elapsed/1000)*7.15);
+   if(Math.hypot(x-from.x,z-from.z)>budget)return {position:from};
+   const corner={x:to.x,z:from.z},alternate={x:from.x,z:to.z};
+   const path=reachable(from,to,room.scene)||
+     [corner,alternate].some(mid=>reachable(from,mid,room.scene)&&reachable(mid,to,room.scene));
+   if(!path){
+     return {position:from};
+   }
+   member.x=x;member.z=z;member.jump=Math.max(0,Math.min(1.15,jump));member.heading=Math.atan2(Math.sin(heading),Math.cos(heading));
+   member.pose=['study','wave','emote'].includes(pose)?pose:'idle';
+   member.lastMove=t;broadcastMotion(room,member);return;
  }
  switch(type){
  case 'scene:set':{
   if(room.hostId!==member.id) throw fail(403,'Ortamı yalnızca oda kurucusu değiştirebilir');
   if(!['garden','library','beach','moon'].includes(data.scene))throw fail(400,'Geçersiz ortam');
-  room.scene=data.scene;break;
+  room.scene=data.scene;
+  for(const p of room.members)if(!canStand(p.x,p.z,room.scene)){p.x=0;p.z=3;p.seat=null;p.pose='idle';}
+  break;
  }
  case 'game:ttt:start':{
   const rival=room.members.find(m=>m.id!==member.id);
@@ -149,9 +173,27 @@ function applyAction(room, member, data){
  }
  case 'note:update': room.notes=clean(data.notes,3000);break;
  case 'exam:set':room.examPeriod=clean(data.examPeriod,45)||'Yazılı Dönemi';break;
+ case 'seat:set': {
+  if(data.seat===null){
+   member.seat=null;member.pose='idle';break;
+  }
+  const seat=seats.find(s=>s.id===data.seat);
+  if(!seat||Math.hypot(member.x-seat.x,member.z-seat.z)>1.2)throw fail(400,'Oturmak için sandalyeye yaklaş.');
+  if(room.members.some(p=>p!==member&&p.seat===seat.id))throw fail(409,'Bu sandalye dolu.');
+  Object.assign(member,{seat:seat.id,x:seat.x,z:seat.z,heading:seat.yaw,jump:0,pose:'sit'});break;
+ }
+ case 'chat:remove':{
+  if(room.hostId!==member.id)throw fail(403,'Mesajı yalnız oda kurucusu kaldırabilir.');
+  room.messages=room.messages.filter(message=>message.id!==data.messageId||!message.authorId);break;
+ }
  case 'chat:send':{
   const msg=clean(data.message,360);if(!msg)throw fail(400,'Mesaj boş');
-  room.messages.push({id:crypto.randomUUID(),by:member.name,message:msg,time:now()});
+  const t=now();
+  if(t-(member.lastChat||0)<1500)throw fail(429,'Bir sonraki mesaj için kısa bir süre bekle.');
+  if(/(?:https?:\/\/|www\.|[\w.+-]+@[\w.-]+\.[a-z]{2,}|(?:\+?\d[ .()-]*){10,})/i.test(msg))
+    throw fail(400,'Sohbette bağlantı ve iletişim bilgisi paylaşma.');
+  member.lastChat=t;
+  room.messages.push({id:crypto.randomUUID(),by:member.name,authorId:member.id,message:msg,time:t});
   room.messages=room.messages.slice(-65);break;
  }
  case 'hat:buy': {
@@ -169,6 +211,7 @@ function applyAction(room, member, data){
     member.hat=data.hat;
   }
   if(['mint','peach','blue','lilac','yellow'].includes(data.skin)) member.skin=data.skin;
+  if(data.avatar&&typeof data.avatar==='object')member.avatar=cleanAvatar(data.avatar,member.avatar);
   break;
  }
  case 'timer:set':{
@@ -235,7 +278,10 @@ function checkTimers(){
   t.running=false;t.endsAt=null;
   if(t.phase==='focus'){
     t.round++;t.phase='break';t.remaining=5*60;
-    for(const p of room.members)if(t.duration>=15*60&&now()-p.seen<60*60*1000)p.coins+=25;
+    const online=new Set([...(listeners.get(room.code)||[])].map(s=>s.memberId));
+    for(const p of room.members)if(t.duration>=15*60&&online.has(p.id)){
+      p.coins+=25;p.focusSeconds=(p.focusSeconds||0)+t.duration;p.focusRounds=(p.focusRounds||0)+1;
+    }
     room.messages.push({id:crypto.randomUUID(),by:'Sistem',message:t.duration>=15*60?'Harika! Çalışma turu tamamlandı. Herkese +25 coin! 🎉':'Deneme turu tamamlandı! Şimdi molaya geçebilirsiniz. ☁️',time:now()});
   } else {t.phase='focus';t.remaining=t.duration;room.messages.push({id:crypto.randomUUID(),by:'Sistem',message:'Mola bitti. Yeni bir odak turuna hazır mısınız? 📚',time:now()});}
   room.messages=room.messages.slice(-65);emit(room);
@@ -243,6 +289,7 @@ function checkTimers(){
 }
 setInterval(checkTimers,1000).unref();
 setInterval(()=>{for(const [code,room] of rooms){if(now()-room.updatedAt>1000*60*60*24*30){rooms.delete(code);listeners.delete(code);}}},1000*60*60).unref();
+const staticFiles=new Set(['/index.html','/style.css','/exam-hub.css','/app.js','/world.js','/plaza-avatar.js','/plaza-shared.js','/exam-data.js','/exam-lessons.js','/exam-hub.js']);
 const mime={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.png':'image/png','.svg':'image/svg+xml','.ico':'image/x-icon'};
 async function getBody(req){let text='';for await (const chunk of req){text+=chunk;if(text.length>MAX_BODY)throw fail(413,'İstek çok uzun');}try{return JSON.parse(text||'{}');}catch{throw fail(400,'Geçersiz veri');}}
 const server=http.createServer(async(req,res)=>{
@@ -253,20 +300,30 @@ const server=http.createServer(async(req,res)=>{
    const body=await getBody(req);return json(res,200,createRoom(body.name));
   }
   if(req.method==='POST'&&url.pathname==='/api/join'){
-   const body=await getBody(req),room=ensureRoom(body.code);const id=clean(body.playerId,80)||freshPlayerId();
-   const name=clean(body.name,20)||'Öğrenci';let p=room.members.find(m=>m.id===id);
-   if(!p){if(room.members.length>=8)throw fail(403,'Oda dolu (8/8)');p={id,name,hat:'none',skin:'mint',coins:0,ownedHats:['none','cap'],seen:now(),x:0,z:3};room.members.push(p);}
-   else {p.name=name;p.seen=now();}
-   emit(room);return json(res,200,{room:roomView(room,id),code:room.code,playerId:id});
+   const body=await getBody(req),room=ensureRoom(body.code);
+   let player;
+   if(body.token){
+    player=ensureMember(room,body.token);
+   }else if(body.playerId){
+    // A previously stored session can exchange its old credential once.
+    player=room.members.find(m=>m.id===body.playerId&&!m.token);
+    if(!player)throw fail(403,'Oturum geçersiz. Oda koduyla yeniden katıl.');
+    player.token=freshToken();
+   }else{
+    if(room.members.length>=8)throw fail(403,'Oda dolu (8/8)');
+    player=newMember(body.name);room.members.push(player);
+   }
+   player.name=clean(body.name,20)||player.name;player.seen=now();
+   emit(room);return json(res,200,{room:roomView(room,player.id),code:room.code,playerId:player.id,token:player.token});
   }
   if(req.method==='GET'&&url.pathname==='/api/room'){
    const room=ensureRoom(url.searchParams.get('code'));
-   ensureMember(room,url.searchParams.get('playerId'));
-   return json(res,200,{room:roomView(room,url.searchParams.get('playerId'))});
+   const member=ensureMember(room,url.searchParams.get('token'));
+   return json(res,200,{room:roomView(room,member.id)});
   }
   if(req.method==='GET'&&url.pathname==='/api/events'){
    const room=ensureRoom(url.searchParams.get('code'));
-   const member=ensureMember(room,url.searchParams.get('playerId'));
+   const member=ensureMember(room,url.searchParams.get('token'));
    res.writeHead(200,{'Content-Type':'text/event-stream; charset=utf-8','Cache-Control':'no-store','Connection':'keep-alive','X-Accel-Buffering':'no'});
    res.write(`event: state\ndata: ${JSON.stringify(roomView(room,member.id))}\n\n`);
    if(!listeners.has(room.code))listeners.set(room.code,new Set());const session={res,memberId:member.id};listeners.get(room.code).add(session);
@@ -274,10 +331,10 @@ const server=http.createServer(async(req,res)=>{
    req.on('close',()=>{clearInterval(h);listeners.get(room.code)?.delete(session);});return;
   }
   if(req.method==='POST'&&url.pathname==='/api/action'){
-   const data=await getBody(req),room=ensureRoom(data.code);const member=ensureMember(room,data.playerId);
-   applyAction(room,member,data);return json(res,200,{ok:true});
+   const data=await getBody(req),room=ensureRoom(data.code);const member=ensureMember(room,data.token);
+   const result=applyAction(room,member,data);return json(res,200,{ok:true,...result});
   }
-  if(req.method==='GET'&&(url.pathname==='/'||url.pathname==='/index.html'||url.pathname==='/style.css'||url.pathname==='/app.js'||url.pathname==='/world.js')){
+  if(req.method==='GET'&&(url.pathname==='/'||staticFiles.has(url.pathname))){
    const file=path.join(ROOT,url.pathname==='/'?'index.html':url.pathname.slice(1));
    const ext=path.extname(file);res.writeHead(200,{'Content-Type':mime[ext]||'application/octet-stream','Cache-Control':'no-cache'});
    return fs.createReadStream(file).pipe(res);
