@@ -73,12 +73,27 @@ export class ExamHub {
     this.clearTimer();
     this.box=box;this.pane=pane;
     box.classList.add('hub');
+    if(pane==='today'){box.innerHTML=this.today();return;}
     const title={library:'Ders kütüphanesi',planner:'Sınavlarım',scenarios:'Senaryolar',simulator:'Deneme stüdyosu'};
     box.innerHTML=`<section class="hub-hero"><small>9. SINIF · ${year}</small><h3>${title[pane]}</h3><p>${{library:'Konu anlatımı, örnekler ve kendi hızında alıştırma.',planner:'Sınavlarını ekle, çalışma oturumlarını sırala.',scenarios:'MEB dağılımlarını incele ve okulunun senaryosunu seç.',simulator:'Süreli yazılı provası ve kısa konu alıştırmaları.'}[pane]}</p></section>${{library:()=>this.library(),planner:()=>this.planner(),scenarios:()=>this.scenarios(),simulator:()=>this.simulator()}[pane]()}`;
     if(pane==='simulator'&&this.data.active&&!this.data.active.finished){
       this.clock=setInterval(()=>this.tick(),250);
       this.tick();
     }
+  }
+  today(){
+    const {done,exams,results,active}=this.data;
+    const now=todayKey(), next=[...exams].filter(e=>e.date>=now).sort((a,b)=>a.date.localeCompare(b.date))[0];
+    const scenario=next&&coverage(next,next.scenario);
+    const pending=scenario?.rows.filter(row=>!done.includes(row.code))||[];
+    const dayCount=next?Math.round((dateValue(next.date)-dateValue(now))/day):null;
+    const call=(route,title,sub,icon)=>`<button type="button" class="study-shortcut" data-route="${route}"><span class="study-shortcut-icon" aria-hidden="true">${icon}</span><span><strong>${title}</strong><small>${sub}</small></span><span aria-hidden="true">›</span></button>`;
+    return `<section class="today-cover"><span class="today-date">${h(displayDate(now))} · ÇALIŞMA MASASI</span><h3>Bugün ne çalışıyoruz?</h3><p>Bir konuyla başla, sınav tarihlerini ekle veya bıraktığın denemeye dön.</p></section>
+      ${active&&!active.finished?`<div class="today-resume"><div><b>Devam eden deneme</b><small>${active.index+1} / ${active.questions.length} · Zamanlayıcı açık</small></div><button type="button" class="hub-button" data-route="simulator">Denemeye dön</button></div>`:''}
+      <section class="today-grid"><article class="today-next"><small>SONRAKİ SINAV</small>
+      ${next?`<h4>${h(subjectName(next.subject))}</h4><p>${h(displayDate(next.date))} · ${dayCount===0?'Bugün':dayCount+' gün kaldı'}</p>${scenario?`<div class="today-progress">${meter(progress(scenario.rows,done))}<span>${pending.length} konu kaldı</span></div>`:''}${action('study-exam','Çalışma planını aç',next.id)}`:`<h4>Takvim boş.</h4><p>İlk sınav tarihini ekle. Seçtiğin senaryoya göre sıradaki konular burada görünecek.</p><button type="button" class="hub-button" data-route="planner">Takvimi aç</button>`}</article>
+      <div class="today-stats"><article><b>${done.length}</b><span>Tamamlanan konu</span></article><article><b>${results.length}</b><span>Kaydedilen son deneme</span></article></div></section>
+      <div class="today-shortcuts">${call('library','Ders kütüphanesi','Konu anlatımı, örnek ve alıştırma','Aa')}${call('scenarios','Senaryolar','Resmî soru dağılımlarını karşılaştır','▤')}${call('focus','Odak sayacı','Kısa bir çalışma oturumu başlat','◷')}</div>`;
   }
   refresh(){if(this.box&&this.pane)this.render(this.box,this.pane);}
   choices(s=this.scope,id=this.selected) {

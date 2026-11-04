@@ -317,3 +317,28 @@ export function buildCampus(world,id) {
   }
   for(const s of map.stations)station(s);
 }
+
+// Small, non-colliding scene accents. Static geometry remains batched.
+export function animateCampus(world,time) {
+  const t=time*.001, draw=(x,y,z,sx,sy,sz,color,type='sphere')=>world.draw({type,x,y,z,sx,sy,sz,color});
+  if(world.scene==='garden'){
+    for(let i=0;i<11;i++){
+      const f=(t*.69+i/11)%1,a=i*2.39996+t*.38,r=.16+f*1.12;
+      draw(Math.cos(a)*r,.86+Math.sin(Math.PI*f)*.55-f*.50,-3.7+Math.sin(a)*r,.085,.13,.085,i%2?'#D4ECE2':'#B1DAD4');
+    }
+  }else if(world.scene==='beach'){
+    for(let i=0;i<7;i++){
+      const z=-14.6-i*1.64+Math.sin(t*.60+i*.71)*.48;
+      draw(Math.sin(i*2.39)*3,-.12,z,10+i%3*3,.013,.026,'#C4D9C3','cube');
+    }
+  }else{
+    const moon=world.scene==='moon';
+    for(let i=0;i<(moon?13:8);i++){
+      const phase=i*2.39996,x=Math.sin(phase)*(moon?9:4)+Math.sin(t*.30+phase)*.28;
+      const z=(moon?-4:-8)+Math.cos(phase)*(moon?5:2);
+      const y=(moon?.7:2.0)+(i%5)*.22+Math.cos(t*.48+phase)*.20;
+      const size=.035+Math.max(0,Math.sin(t*1.02+phase))*.055;
+      draw(x,y,z,size,size,size,moon?'#F8D9A4':'#FFE2A5');
+    }
+  }
+}

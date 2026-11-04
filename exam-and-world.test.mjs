@@ -100,3 +100,17 @@ test('Four distinct campuses keep their spawn, seats and station approaches usab
  }
  assert.equal(layouts.size,4);
 });
+
+import {changeFocus,focusState} from './study-focus.js';
+test('Personal focus survives reload, pauses, resumes, and settles once',()=>{
+ const started=changeFocus(null,'toggle',1000);
+ const restored=focusState(started,11000);
+ assert.equal(restored.left,1490);
+ const paused=changeFocus(restored,'toggle',11000);
+ assert.equal(focusState(paused,91000).left,1490);
+ const resumed=changeFocus(paused,'toggle',91000);
+ const finished=focusState(resumed,1581000);
+ assert.equal(finished.completed,1);
+ assert.equal(focusState(finished,2000000).completed,1);
+ assert.equal(changeFocus(finished,'duration',2000000,15).left,900);
+});

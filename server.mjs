@@ -289,7 +289,7 @@ function checkTimers(){
 }
 setInterval(checkTimers,1000).unref();
 setInterval(()=>{for(const [code,room] of rooms){if(now()-room.updatedAt>1000*60*60*24*30){rooms.delete(code);listeners.delete(code);}}},1000*60*60).unref();
-const staticFiles=new Set(['/index.html','/style.css','/exam-hub.css','/app.js','/world.js','/campus-map.js','/campus-ui.css','/plaza-avatar.js','/plaza-shared.js','/exam-data.js','/exam-lessons.js','/exam-hub.js']);
+const staticFiles=new Set(['/index.html','/style.css','/exam-hub.css','/app.js','/world.js','/campus-map.js','/campus-ui.css','/study-upgrade.css','/study-focus.js','/plaza-avatar.js','/plaza-shared.js','/exam-data.js','/exam-lessons.js','/exam-hub.js']);
 const mime={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.png':'image/png','.svg':'image/svg+xml','.ico':'image/x-icon'};
 async function getBody(req){let text='';for await (const chunk of req){text+=chunk;if(text.length>MAX_BODY)throw fail(413,'İstek çok uzun');}try{return JSON.parse(text||'{}');}catch{throw fail(400,'Geçersiz veri');}}
 const server=http.createServer(async(req,res)=>{

@@ -1,4 +1,4 @@
-<!doctype html><html lang="tr"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/><meta name="theme-color" content="#b8e5f5"/><link rel="icon" href="data:,"><title>Study Plaza 3D — Study together. Play together.</title><link rel="stylesheet" href="/style.css"/><link rel="stylesheet" href="/exam-hub.css"/><link rel="stylesheet" href="/campus-ui.css"/></head>
+<!doctype html><html lang="tr"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/><meta name="theme-color" content="#b8e5f5"/><link rel="icon" href="data:,"><title>Study Plaza 3D — Study together. Play together.</title><link rel="stylesheet" href="/style.css"/><link rel="stylesheet" href="/exam-hub.css"/><link rel="stylesheet" href="/campus-ui.css"/><link rel="stylesheet" href="/study-upgrade.css"/></head>
 <body>
 <div id="toast" role="status" aria-live="polite"></div>
 <svg class="ui-symbols" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs>
@@ -15,17 +15,31 @@
 <div id="launch" class="launch screen">
   <header class="launch-nav"><div class="brand"><span class="brand-mark">✿</span><span>study<span class="brand-highlight">plaza</span></span></div><span class="launch-nav-sub">ARKADAŞLARLA ÇALIŞMA KAMPÜSÜ</span></header>
   <div class="launch-body">
-    <div class="launch-copy"><span class="eyebrow">BİR ARADA · KENDİ TEMPO'NDA</span><h1>Derse bir<br><span>yer aç.</span></h1><p>Arkadaşlarınla bir kampüs seç. Ortak masada çalış, sınavlarına hazırlan ve molanı birlikte ver.</p><div class="landing-features"><span>4 ayrı dünya</span><span>9. sınıf dersleri</span><span>Ortak odak sayacı</span></div></div>
-    <div class="launch-entry"><span class="login-overline">KAMPÜSE GİRİŞ</span><h2>Bir oda aç.</h2><p>İstersen bir arkadaşının odasına katıl.</p><label for="nickname">KAMPÜS İSMİN</label><input id="nickname" maxlength="20" placeholder="Adını yaz" autocomplete="nickname"/><button id="create-room" class="cta-button">Oda oluştur <span>↗</span></button><div class="join-divider"><span>oda kodun varsa</span></div><div class="join-line"><input id="join-code" maxlength="6" placeholder="6 haneli kod" aria-label="Oda kodu"/><button id="join-room" class="light-button">Katıl</button></div></div>
+    <div class="launch-copy"><span class="eyebrow">BİR ARADA · KENDİ TEMPONDA</span><h1>Derse bir<br><span>yer aç.</span></h1><p>Arkadaşlarınla bir kampüs seç. Ortak masada çalış, sınavlarına hazırlan ve molanı birlikte ver.</p><div class="landing-features"><span>4 ayrı dünya</span><span>9. sınıf dersleri</span><span>Ortak odak sayacı</span></div><div class="launch-visual" aria-hidden="true">
+  <svg viewBox="0 0 500 166" fill="none">
+    <defs><linearGradient id="campus-paper-art" x1="100" y1="0" x2="410" y2="160" gradientUnits="userSpaceOnUse"><stop stop-color="#CFE1AC"/><stop offset="1" stop-color="#81A68D"/></linearGradient></defs>
+    <rect width="500" height="166" rx="22" fill="#345C52"/>
+    <circle cx="402" cy="60" r="35" fill="#E8D49A"/><path d="M0 112c46-40 106-45 169-8 55-37 89-41 143-11 58-30 126-26 188 11v62H0z" fill="#6C957D"/>
+    <path d="m103 119 146-48 152 49-147 44z" fill="url(#campus-paper-art)"/>
+    <path d="m124 126 95-29 19 7-94 28m108-22 28-9 88 29-25 8m-90 14-14-5 49-16 16 6" fill="#F5E7B9"/>
+    <path d="m197 83 34 11v31l-34-12zm34 11 81-27v31l-81 27z" fill="#416C60"/>
+    <path d="m193 83 34-24 82-26 9 33-86 30z" fill="#DCE4B1"/><path d="m193 83 34-24 5 37z" fill="#AEC39A"/>
+    <path d="m239 97 13-4v18l-13 4zm19-7 13-4v18l-13 4zm19-7 13-4v18l-13 4zm19-6 10-4v18l-10 4z" fill="#A1C1A2"/>
+    <path d="M165 99v24m191-29v27m-27-15v25" stroke="#735C4E" stroke-width="4"/>
+    <path d="M165 80c17 0 21 27 0 28-18-1-17-28 0-28Zm191-7c20 0 24 28 0 29-18-1-19-29 0-29Zm-27 10c18 0 18 25 0 26-16-1-15-26 0-26Z" fill="#548671"/>
+    <path d="M60 47h31m-17-10h44m257-2h-21m-3 4h-17" stroke="#DCE5CB" stroke-linecap="round" opacity=".55"/>
+  </svg>
+</div></div>
+    <div class="launch-entry"><span class="login-overline">KAMPÜSE GİRİŞ</span><h2>Çalışmaya başla.</h2><p>Tek başına ilerle veya arkadaşlarınla buluş.</p><button type="button" id="solo-entry" class="solo-entry">Tek başıma çalış <span aria-hidden="true">↗</span></button><div class="join-divider"><span>arkadaşlarla çalış</span></div><label for="nickname">KAMPÜS İSMİN</label><input id="nickname" maxlength="20" placeholder="Adını yaz" autocomplete="nickname"/><button id="create-room" class="cta-button">Oda oluştur <span>↗</span></button><div class="join-divider"><span>oda kodun varsa</span></div><div class="join-line"><input id="join-code" maxlength="6" placeholder="6 haneli kod" aria-label="Oda kodu"/><button id="join-room" class="light-button">Katıl</button></div></div>
   </div>
   <div class="launch-footer"><span>STUDY PLAZA 3D</span><span>DERS · ODAK · MOLA</span></div>
 </div>
 <div id="app" class="app hidden">
-  <div id="sky-layer"></div>
+  <div id="sky-layer"></div><div class="solo-backdrop" aria-hidden="true"></div>
   <div id="scene-wrap"><canvas id="world" aria-label="3D Study Plaza oyun dünyası"></canvas><div id="world-labels" class="world-labels"></div></div>
   <header class="app-header campus-header">
     <button id="worlds-button" class="campus-location" aria-label="Ortam seç"><span class="campus-mark">✿</span><span class="location-text"><small>STUDY PLAZA</small><strong id="world-name">Botanik Avlu</strong></span><svg class="ui-icon" aria-hidden="true"><use href="#i-map"></use></svg></button>
-    <div class="campus-tools">
+    <div class="solo-brand"><span class="campus-mark">✿</span><span><small>STUDY PLAZA</small><b>Kişisel çalışma</b></span></div><button class="campus-chip solo-exit" type="button" id="solo-exit">Girişe dön</button><div class="campus-tools">
       <button class="campus-chip" data-open="friends" aria-label="Oda ve sohbet"><svg class="ui-icon" aria-hidden="true"><use href="#i-room"></use></svg><b id="online-count">1</b></button>
       <button class="campus-chip" data-open="focus" aria-label="Odak sayacı"><svg class="ui-icon" aria-hidden="true"><use href="#i-clock"></use></svg><span id="live-timer">25:00</span></button>
       <button id="copy-invite" class="campus-chip invite" aria-label="Oda davet bağlantısını kopyala"><svg class="ui-icon" aria-hidden="true"><use href="#i-arrow"></use></svg><span>Davet et</span></button>
@@ -33,10 +47,11 @@
   </header>
   <div class="campus-hint" id="bottom-hint">WASD hareket · E etkileşim</div>
   <nav class="game-rail campus-dock" aria-label="Study Plaza bölümleri">
-    <button class="rail-item selected" data-home aria-current="page"><svg class="ui-icon" aria-hidden="true"><use href="#i-plaza"></use></svg><small>Plaza</small></button>
+    <button class="rail-item selected" data-home aria-current="page"><svg class="ui-icon" aria-hidden="true"><use href="#i-plaza"></use></svg><small id="dock-home-label">Plaza</small></button>
     <button class="rail-item" data-open="library"><svg class="ui-icon" aria-hidden="true"><use href="#i-book"></use></svg><small>Dersler</small></button>
     <button class="rail-item" data-open="exams"><svg class="ui-icon" aria-hidden="true"><use href="#i-exam"></use></svg><small>Sınavlar</small></button>
     <button class="rail-item" data-open="friends"><svg class="ui-icon" aria-hidden="true"><use href="#i-room"></use></svg><small>Oda</small></button>
+    <button class="rail-item solo-dock-action" data-open="focus"><svg class="ui-icon" aria-hidden="true"><use href="#i-clock"></use></svg><small>Odak</small></button>
     <button class="rail-item" data-open="more"><svg class="ui-icon" aria-hidden="true"><use href="#i-more"></use></svg><small>Diğer</small></button>
   </nav>
   <div class="touch-pad touch-controls" aria-label="Dokunmatik kontroller"><div class="touch-joy" aria-label="Hareket joystick"><span></span></div><div class="touch-buttons"><button id="touch-jump" aria-label="Zıpla">↑</button><button id="touch-interact" aria-label="Etkileşim">E</button></div></div>

@@ -1,0 +1,55 @@
+/* Study Plaza personal study and visual polish */
+.launch-copy .launch-visual{width:min(100%,470px);margin-top:19px;border:1px solid #d4e7cc59;border-radius:23px;overflow:hidden;box-shadow:0 18px 45px #15373377}
+.launch-visual svg{display:block;width:100%;height:auto}
+.launch .launch-copy h1{font-size:clamp(58px,8vw,112px)}
+.launch .launch-entry{padding:clamp(15px,2.5vw,28px)}
+.launch .launch-entry .solo-entry{display:flex;align-items:center;justify-content:space-between;width:100%;min-height:49px;margin:10px 0 0;padding:9px 13px;background:#284e46;color:#f5f6e6;border:1px solid #294f46;border-radius:13px;font:750 15px/1.2 Inter,system-ui,sans-serif;cursor:pointer}
+.solo-entry:hover{filter:brightness(1.15)}
+.solo-entry:focus-visible{outline:3px solid #82b8a0;outline-offset:2px}
+.launch .launch-entry .join-divider{margin:11px 0}
+.solo-brand,.solo-exit,.solo-backdrop,.campus-dock .solo-dock-action{display:none}
+.solo-mode .solo-brand,.solo-mode .solo-exit{display:flex}
+.solo-mode .solo-backdrop{display:block;position:absolute;inset:0;background:radial-gradient(ellipse at 18% 22%,#c8dcac72,transparent 36%),radial-gradient(ellipse at 77% 78%,#8fb79775,transparent 51%),linear-gradient(124deg,#294943,#548071);z-index:1}
+.solo-mode .solo-backdrop:after{content:"";position:absolute;inset:0;opacity:.18;background:repeating-linear-gradient(122deg,transparent 0 33px,#d3e3c6 34px 35px,transparent 36px 58px);mask-image:linear-gradient(70deg,#000,transparent 39%,transparent 72%,#000)}
+.solo-mode #sky-layer,.solo-mode #scene-wrap,.solo-mode .campus-location,.solo-mode .campus-tools,.solo-mode .campus-dock [data-open=friends],.solo-mode .campus-dock [data-open=more]{display:none}
+.solo-mode .campus-dock .solo-dock-action{display:flex}
+.solo-brand{align-items:center;gap:9px;padding:6px 11px 6px 6px;background:#1f4038;color:#f8f7e3;border-radius:14px;box-shadow:var(--campus-shadow);min-height:46px}
+.solo-brand>span:last-child{display:grid;line-height:1.15}
+.solo-brand small{color:#c1d9bc;font-size:8px;font-weight:850;letter-spacing:.12em}
+.solo-brand b{font-size:13px}
+.solo-mode .campus-header{z-index:25}
+.solo-mode .panel-shade{display:none}
+.app .drawer[data-pane=today]{width:min(790px,calc(100vw - 32px))}
+.solo-mode .drawer[data-pane=today] .drawer-head{display:none}
+.today-cover{position:relative;isolation:isolate;overflow:hidden;display:grid;align-content:center;gap:5px;min-height:137px;border-radius:18px;padding:16px 19px;color:#f9f4d9;background:linear-gradient(135deg,#244a43,#487c6b)}
+.today-cover:after,.today-cover:before{content:"";position:absolute;z-index:-1;border-radius:50%;border:1px solid #dbe5b864;width:165px;height:165px;right:-9px;bottom:-76px;box-shadow:0 0 0 18px #c8debb27,0 0 0 36px #c8debb18,0 0 0 54px #c8debb13}
+.today-cover:before{background:#dce5ba57;box-shadow:none;width:59px;height:59px;right:52px;bottom:23px}
+.today-date{font-size:10px;font-weight:780;letter-spacing:.13em;color:#d6e4c2;text-transform:uppercase}
+.app .today-cover h3{font-size:clamp(24px,4vw,38px);line-height:1;margin:2px 0;color:#fff8de;letter-spacing:-.048em}
+.today-cover p{font-size:13px;max-width:32ch;margin:0;color:#e6ebd4;line-height:1.42}
+.today-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(160px,.63fr);gap:9px}
+.today-next,.today-stats article,.today-resume{display:grid;align-content:start;gap:5px;padding:11px 13px;border-radius:14px;border:1px solid #dde6d8;background:#fffdf5;color:#2b4440}
+.today-next small,.today-resume small{color:#5d766c;letter-spacing:.1em;font-size:9px;font-weight:800}
+.app .today-next h4{font-size:18px;margin:0}
+.today-next p{margin:0;font-size:12px;line-height:1.42;color:#556e65}
+.today-next .hub-button{justify-self:start;min-height:33px;padding:5px 9px;margin-top:3px;font-size:12px}
+.today-stats{display:grid;gap:7px}
+.today-stats article{display:flex;align-items:center;gap:8px;background:#e9eee2;padding:8px 11px}
+.today-stats b{font-size:22px;line-height:1;color:#315b4e}
+.today-stats span{font-size:11px;color:#506b60}
+.today-progress{display:flex;align-items:center;flex-wrap:wrap;gap:6px;font-size:10px}
+.today-progress progress{width:min(95px,45%)}
+.today-resume{display:flex;align-items:center;justify-content:space-between;background:#e9eedf}
+.today-resume small{display:block;margin-top:3px;letter-spacing:.02em}
+.today-resume .hub-button{min-height:34px;font-size:12px;padding:5px 8px}
+.today-shortcuts{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+.study-shortcut{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:6px;text-align:left;border:1px solid #dee6d8;background:#fffdf5;border-radius:12px;color:#28423e;padding:7px;min-height:53px;cursor:pointer;font:inherit}
+.study-shortcut:hover{background:#e8efe1}
+.study-shortcut-icon{display:grid;place-items:center;background:#dceadc;color:#375e50;border-radius:7px;width:26px;height:26px;font-weight:850;font-size:12px}
+.study-shortcut strong,.study-shortcut small{display:block;line-height:1.2}
+.study-shortcut strong{font-size:12px}
+.study-shortcut small{font-size:9px;color:#5e7669;margin-top:2px}
+.personal-focus{background:radial-gradient(ellipse at 70% 0%,#d5e4ce,transparent 60%),#e8eedf}
+@media(max-width:780px){.launch-copy .launch-visual{display:none}}
+@media(max-width:600px){.app .drawer[data-pane=today]{width:calc(100vw - 16px)}.today-cover{min-height:120px;padding:12px}.today-grid{grid-template-columns:1fr}.today-stats{grid-template-columns:1fr 1fr}.today-shortcuts{grid-template-columns:1fr}.study-shortcut{min-height:42px}.solo-brand{min-height:40px}}
+@media(max-height:730px){.launch-copy .launch-visual{max-width:390px;margin-top:10px}}

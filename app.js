@@ -1,14 +1,15 @@
+import {changeFocus,focusMinutes,focusState} from './study-focus.js';
 import {ExamHub} from './exam-hub.js';
 import {avatarOptions,cleanAvatar,sceneLayout} from './plaza-shared.js';
 import {PlazaWorld,presets} from './world.js';
 const $=(s,b=document)=>b.querySelector(s), $$=(s,b=document)=>[...b.querySelectorAll(s)];
 const safe=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const state={room:null,id:null,code:null,name:'',events:null,world:null,panel:null,scene:'garden',lastRev:-1,quizSubject:'kimya',lessonId:null,lessonEditing:false,labModel:'rutherford',game:null,math:null,star:null,starEnd:0};
+const state={solo:false,room:null,id:null,code:null,name:'',events:null,world:null,panel:null,scene:'garden',lastRev:-1,quizSubject:'kimya',lessonId:null,lessonEditing:false,labModel:'rutherford',game:null,math:null,star:null,starEnd:0};
 const gameInfo=[{id:'memory',emoji:'🃏',name:'Memory Flip',desc:'12 kartı eşleştir, hafızanı çalıştır.',players:'Tek kişilik'},{id:'math',emoji:'⚡',name:'Math Blitz',desc:'30 saniyede doğru işlem yağmuru!',players:'Tek kişilik'},{id:'stars',emoji:'🌟',name:'Star Dash 3D',desc:'Dünyaya dağılan 12 yıldızı topla.',players:'3D hareket'},{id:'ttt',emoji:'⭕',name:'XO Düellosu',desc:'Arkadaşına karşı sıra tabanlı düello.',players:'2 kişilik · canlı'}];
 const hats={none:['Şapkasız','🙂',0],cap:['Şapka','🧢',0],beanie:['Bere','🧶',25],star:['Yıldız','⭐',50],crown:['Taç','👑',100],wizard:['Büyücü','🪄',150]};
 const swatches={mint:'#6FC4AD',peach:'#E8A0AC',blue:'#80ADDF',lilac:'#B7A3E9',yellow:'#EFCB7D'};
 const atom={dalton:['Dalton','İçi dolu bir küre. Atomun iç yapısı bilinmiyordu.','Dolu küre'],thomson:['Thomson','Pozitif yük içine negatif elektronların dağıldığı model. Çekirdek yok.','Üzümlü kek'],rutherford:['Rutherford','Atomun büyük kısmı boşluktur, ortada pozitif çekirdek vardır.','Altın levha'],bohr:['Bohr','Elektronlar belirli enerji düzeylerinde bulunur.','Katmanlar'],modern:['Modern atom','Kesin elektron yörüngesi yerine bulunma olasılığı yüksek orbitaller.','Elektron bulutu']};
-const hubPanes=new Set(['library','planner','scenarios','simulator']);
+const hubPanes=new Set(['today','library','planner','scenarios','simulator']);
 const hub=new ExamHub({open:openPanel,notify:toast});
 let avatarPreview,previewMember,queuedMotion,postingMotion=false;
 const nameLabels=new Map();
@@ -35,9 +36,54 @@ async function postMotion(pose){
     }
   }catch{}finally{postingMotion=false;}
 }
+const personalFocusKey='study-plaza-focus-v1';
+function personalFocus(){
+  let stored=null;
+  try{stored=JSON.parse(localStorage.getItem(personalFocusKey)||'null');}catch{}
+  const state=focusState(stored,Date.now());
+  if(stored?.ends&&!state.ends)savePersonalFocus(state);
+  return state;
+}
+function savePersonalFocus(state){
+  try{localStorage.setItem(personalFocusKey,JSON.stringify(state));}catch{}
+}
+function renderPersonalFocus(box){
+  const t=personalFocus();
+  box.innerHTML=`<div class="focus-sheet personal-focus"><small>KİŞİSEL ODAK</small><b id="personal-clock"></b><div class="focus-actions"><button class="hub-button" data-personal-focus="toggle">Başlat</button><button class="avatar-action" data-personal-focus="reset">Sıfırla</button></div><label>Odak süresi <select id="personal-duration">${focusMinutes.map(m=>`<option value="${m}" ${m*60===t.duration?'selected':''}>${m} dk</option>`).join('')}</select></label></div><p class="panel-helper"><span id="personal-rounds">${t.completed}</span> tamamlanan oturum · Sayaç bu tarayıcıda kaydedilir.</p>`;
+  updatePersonalFocus(t);
+}
+function updatePersonalFocus(t=personalFocus()){
+  const clock=$('#personal-clock');
+  if(!clock)return;
+  clock.textContent=String(Math.floor(t.left/60)).padStart(2,'0')+':'+String(t.left%60).padStart(2,'0');
+  $('[data-personal-focus="toggle"]').textContent=t.ends?'Duraklat':t.left===0?'Yeniden başlat':t.left===t.duration?'Başlat':'Devam et';
+  $('#personal-duration').disabled=Boolean(t.ends);
+  $('#personal-rounds').textContent=t.completed;
+}
+function handlePersonalFocus(action,minutes){
+  const t=changeFocus(personalFocus(),action,Date.now(),minutes);
+  savePersonalFocus(t);
+  updatePersonalFocus(t);
+}
+function openSolo(){
+  if(state.room)return;
+  state.solo=true;
+  const url=new URL(location.href);url.searchParams.set('study','1');history.replaceState(null,'',url);
+  $('#app').classList.remove('hidden');$('#app').classList.add('solo-mode');
+  $('#launch').classList.add('hidden');$('#dock-home-label').textContent='Bugün';
+  openPanel('today');
+}
+function closeSolo(){
+  if(!state.solo)return;
+  state.solo=false;
+  closePanel();
+  const url=new URL(location.href);url.searchParams.delete('study');history.replaceState(null,'',url);
+  $('#app').classList.add('hidden');$('#app').classList.remove('solo-mode');$('#launch').classList.remove('hidden');
+  $('#dock-home-label').textContent='Plaza';$('#solo-entry').focus();
+}
 function renderMenu(box,panel){
   const rows=panel==='exams'?
-    [['planner','Takvim','Tarihlerini ve çalışma süreni planla','clock'],['scenarios','Senaryolar','Ders ve yazılı kapsamını karşılaştır','book'],['simulator','Denemeler','Süreli prova veya kısa konu testi','exam']]:
+    [['today','Bugünkü plan','Sıradaki sınavın ve kaldığın deneme','plaza'],['planner','Takvim','Tarihlerini ve çalışma süreni planla','clock'],['scenarios','Senaryolar','Ders ve yazılı kapsamını karşılaştır','book'],['simulator','Denemeler','Süreli prova veya kısa konu testi','exam']]:
     [['closet','Avatarım','Saç, kıyafet ve aksesuarlarını seç','room'],['stats','İstatistikler','Çalışma süreni ve başarılarını gör','exam'],['arcade','Mola oyunları','Oda oyunları ve mini görevler','more'],['world','Ortam değiştir','Dört çalışma alanından birini seç','map']];
   box.innerHTML=`<div class="panel-menu">${rows.map(([route,title,body,icon])=>`<button type="button" class="route-card" data-route="${route}"><span class="route-icon"><svg class="ui-icon" aria-hidden="true"><use href="#i-${icon}"></use></svg></span><span><strong>${title}</strong><small>${body}</small></span><span class="route-arrow" aria-hidden="true">›</span></button>`).join('')}</div>${panel==='more'?'<button class="leave-room" type="button" data-leave-room>Odadan çık</button>':''}`;
 }
@@ -117,7 +163,7 @@ const me=()=>state.room?.members.find(m=>m.id===state.id);
 function saveSession(){localStorage.setItem('study-plaza-3d',JSON.stringify({code:state.code,id:state.id,token:state.token,name:state.name}));}
 function sessionStart(res){state.code=res.code;state.id=res.playerId;state.token=res.token;state.room=res.room;state.lastRev=-1;saveSession();$('#launch').classList.add('hidden');$('#app').classList.remove('hidden');if(!state.world){try{state.world=new PlazaWorld($('#world'));state.world.onMove=postMotion;state.world.isBlocked=()=>Boolean(state.panel);state.world.onInteract=(id,seat)=>{if(id==='seat')send('seat:set',{seat}).catch(()=>{});else openPanel(stationPanel(id));};state.world.onStar=(found,total)=>{if(!state.star)return;state.star.found=found;if(found===total){state.star.finished=true;state.world.setStarHunt(false);toast('🌟 Bütün yıldızları topladın!');renderDrawer();}else if(state.panel==='arcade')renderDrawer();};state.world.onFrame=updateWorldLabels;}catch(e){toast('3D açılırken hata: '+e.message,true);console.error(e)}}subscribe();receive(res.room);const savedAvatar=storedAvatar();if(savedAvatar&&!me()?.avatar)send('avatar:set',savedAvatar,true).catch(()=>{});toast('Plaza dünyana hoş geldin! ☁️');}
 async function createRoom(){const name=$('#nickname').value.trim()||'Öğrenci';let b=$('#create-room');b.disabled=true;try{let r=await api('create',{name});state.name=name;sessionStart(r);}catch(e){toast(e.message,true);}finally{b.disabled=false}}
-async function joinRoom(code,id=null,name=null,token=null){let n=name||$('#nickname').value.trim()||'Öğrenci';try{let r=await api('join',{code,playerId:id,token,name:n});state.name=n;sessionStart(r)}catch(e){toast(e.message,true);localStorage.removeItem('study-plaza-3d')}}
+async function joinRoom(code,id=null,name=null,token=null){let n=name||$('#nickname').value.trim()||'Öğrenci';try{let r=await api('join',{code,playerId:id,token,name:n});if(state.solo)return;state.name=n;sessionStart(r)}catch(e){toast(e.message,true);localStorage.removeItem('study-plaza-3d')}}
 function subscribe(){
   state.events?.close();
   state.events=new EventSource(`/api/events?code=${encodeURIComponent(state.code)}&token=${encodeURIComponent(state.token)}`);
@@ -146,7 +192,7 @@ function updateWorldLabels(){
     el.hidden=!v||i>1||s.dist>9||v.x<6||v.x>94||v.y<9||v.y>83;
     if(!el.hidden){el.style.left=v.x+'%';el.style.top=v.y+'%';el.classList.toggle('near',s.dist<3.6);}
   }
-  const next=world.seat?'E ile kalk · R ile çalış':sceneLayout(state.scene).seats.some(seat=>Math.hypot(world.pos.x-seat.x,world.pos.z-seat.z)<1)?'E ile masaya otur':nearby[0]?.dist<3.6?`E ile aç · ${nearby[0].name}`:'WASD hareket · Fareyle kamera · E etkileşim';
+  const next=state.star&&!state.star.finished?`Yıldız avı · ${state.star.found}/12 · ${Math.max(0,Math.ceil((state.starEnd-Date.now())/1000))} sn`:world.seat?'E ile kalk · R ile çalış':sceneLayout(state.scene).seats.some(seat=>Math.hypot(world.pos.x-seat.x,world.pos.z-seat.z)<1)?'E ile masaya otur':nearby[0]?.dist<3.6?`E ile aç · ${nearby[0].name}`:'WASD hareket · Fareyle kamera · E etkileşim';
   const hint=$('#bottom-hint');
   if(hint.textContent!==next)hint.textContent=next;
   hint.classList.toggle('interaction',next.startsWith('E '));
@@ -175,9 +221,9 @@ function tickTimer(){
   if(phase)phase.textContent=t.phase==='break'?'MOLA':'ODAK';
   if(duration)duration.disabled=t.running;
 }
-const pageTitles={world:'Ortam seç',exams:'Sınavlar',more:'Diğer',library:'Dersler',planner:'Sınav takvimi',scenarios:'Senaryolar',simulator:'Denemeler',friends:'Oda',focus:'Odak sayacı',stats:'İstatistikler',study:'Ortak ders panosu',quiz:'Quiz Arenası',arcade:'Mola oyunları',closet:'Avatarım'};
+const pageTitles={today:'Bugün',world:'Ortam seç',exams:'Sınavlar',more:'Diğer',library:'Dersler',planner:'Sınav takvimi',scenarios:'Senaryolar',simulator:'Denemeler',friends:'Oda',focus:'Odak sayacı',stats:'İstatistikler',study:'Ortak ders panosu',quiz:'Quiz Arenası',arcade:'Mola oyunları',closet:'Avatarım'};
 function updateDock(panel){
-  const route=['exams','planner','scenarios','simulator','quiz'].includes(panel)?'exams':
+  const route=state.solo&&panel==='focus'?'focus':['exams','planner','scenarios','simulator','quiz'].includes(panel)?'exams':
     ['more','stats','closet','arcade'].includes(panel)?'more':
     ['friends','focus'].includes(panel)?'friends':
     ['library','study'].includes(panel)?'library':null;
@@ -188,7 +234,7 @@ function updateDock(panel){
   });
 }
 function openPanel(panel){
-  if(!pageTitles[panel])return;
+  if(!pageTitles[panel]||state.solo&&!hubPanes.has(panel)&&!['exams','focus'].includes(panel))return;
   if(state.world)state.world.keys={};
   if(panel!=='closet'){avatarPreview?.destroy();avatarPreview=null;}
   state.panel=panel;
@@ -204,6 +250,7 @@ function openPanel(panel){
 }
 function closePanel(){
   if(!state.panel)return;
+  if(state.solo){if(state.panel!=='today')openPanel('today');return;}
   hub.clearTimer();avatarPreview?.destroy();avatarPreview=null;state.panel=null;
   $('#app').classList.remove('panel-open');
   $('#drawer').classList.add('hidden');$('#panel-shade').classList.add('hidden');
@@ -211,7 +258,8 @@ function closePanel(){
 }
 function renderDrawer(){
   const box=$('#drawer-body');
-  if(!box||!state.room)return;
+  if(!box||!state.room&&!state.solo)return;
+  if(state.solo&&state.panel==='focus'){hub.clearTimer();box.classList.remove('hub');renderPersonalFocus(box);return;}
   if(hubPanes.has(state.panel)){hub.render(box,state.panel);return;}
   hub.clearTimer();box.classList.remove('hub');
   const panel=state.panel;
@@ -249,21 +297,21 @@ function handleStudy(e){let b=e.target.closest('button');if(!b)return;let prompt
  if(b.dataset.action==='save-notes')send('note:update',{notes:$('#notes-editor').value}).then(()=>toast('Pano kaydedildi!'));
 }
 function handleQuiz(e){let subj=e.target.closest('[data-quiz-subject]');if(subj){state.quizSubject=subj.dataset.quizSubject;renderDrawer();return;}let choice=e.target.closest('[data-choice]');if(choice){send('quiz:answer',{choice:Number(choice.dataset.choice)});return;}let b=e.target.closest('[data-action]');if(!b)return;let map={'quiz-start':'quiz:start','quiz-next':'quiz:next','quiz-reveal':'quiz:reveal','quiz-stop':'quiz:stop'};send(map[b.dataset.action],b.dataset.action==='quiz-start'?{subject:state.quizSubject}:{});}
-function handleArcade(e){let g=e.target.closest('[data-game]');if(g){state.game=g.dataset.game;if(state.game==='memory')startMemory();if(state.game==='math')startMath();if(state.game==='stars')startStars();renderDrawer();return;}if(e.target.closest('[data-game-back]')){if(state.game==='stars')state.world?.setStarHunt(false);state.game=null;state.star=null;renderDrawer();return;}let b=e.target.closest('[data-memory]');if(b){let g=state.memory,i=Number(b.dataset.memory);if(!g||g.locked||g.open.includes(i)||g.matched.has(i))return;g.open.push(i);if(g.open.length===2){g.moves++;let [a,c]=g.open;if(g.cards[a]===g.cards[c]){g.matched.add(a);g.matched.add(c);g.open=[];}else{g.locked=true;setTimeout(()=>{g.open=[];g.locked=false;if(state.game==='memory'&&state.panel==='arcade')renderDrawer();},700);}}renderDrawer();return;}
+function handleArcade(e){let g=e.target.closest('[data-game]');if(g){state.game=g.dataset.game;if(state.game==='memory')startMemory();if(state.game==='math')startMath();if(state.game==='stars'){startStars();closePanel();return;}renderDrawer();return;}if(e.target.closest('[data-game-back]')){if(state.game==='stars')state.world?.setStarHunt(false);state.game=null;state.star=null;renderDrawer();return;}let b=e.target.closest('[data-memory]');if(b){let g=state.memory,i=Number(b.dataset.memory);if(!g||g.locked||g.open.includes(i)||g.matched.has(i))return;g.open.push(i);if(g.open.length===2){g.moves++;let [a,c]=g.open;if(g.cards[a]===g.cards[c]){g.matched.add(a);g.matched.add(c);g.open=[];}else{g.locked=true;setTimeout(()=>{g.open=[];g.locked=false;if(state.game==='memory'&&state.panel==='arcade')renderDrawer();},700);}}renderDrawer();return;}
  if(e.target.closest('[data-memory-restart]')){startMemory();renderDrawer();return;}
  let math=e.target.closest('[data-math]');if(math){let g=state.math;if(Date.now()>=g.end)return;let choice=g.options[Number(math.dataset.math)];if(choice===g.answer){g.score++;toast('Doğru! +1 puan');}else toast('Olmadı, sonraki işlem!');Object.assign(g,makeMathQuestion());renderDrawer();return;}
  if(e.target.closest('[data-math-restart]')){startMath();renderDrawer();return;}
- if(e.target.closest('[data-star-restart]')){startStars();renderDrawer();return;}
+ if(e.target.closest('[data-star-restart]')){startStars();closePanel();return;}
  if(e.target.closest('[data-arcade-close]')){closePanel();return;}
  let cell=e.target.closest('[data-cell]');if(cell){send('game:ttt:move',{cell:Number(cell.dataset.cell)});return;}
  let action=e.target.closest('[data-action]');if(action?.dataset.action==='ttt-start')send('game:ttt:start');if(action?.dataset.action==='ttt-reset')send('game:ttt:reset');}
 async function handleCloset(e){const pose=e.target.closest('[data-pose]')?.dataset.pose;if(pose){state.world?.setPose(pose);avatarPreview?.setPose(pose);return;}let sw=e.target.closest('[data-skin]');if(sw){try{await send('avatar:set',{skin:sw.dataset.skin});rememberAvatar(cleanAvatar(me()?.avatar),sw.dataset.skin);if(state.panel==='closet'&&previewMember){previewMember.skin=sw.dataset.skin;$('[data-skin]').forEach(button=>button.classList.toggle('active',button.dataset.skin===sw.dataset.skin));}}catch{}return;}let h=e.target.closest('[data-hat]');if(h){let id=h.dataset.hat,m=me();if(m.ownedHats?.includes(id))send('avatar:set',{hat:id});else if(confirm(`${hats[id][0]} için ${hats[id][2]} coin harcamak istiyor musun?`))send('hat:buy',{hat:id});}}
 async function leaveRoom(){try{await send('room:leave')}catch{}state.events?.close();localStorage.removeItem('study-plaza-3d');location.href='/';}
-function hook(){resetLabels();$('#create-room').addEventListener('click',createRoom);$('#join-room').addEventListener('click',()=>joinRoom($('#join-code').value.trim().toUpperCase()));$('#join-code').addEventListener('keydown',e=>{if(e.key==='Enter')joinRoom(e.target.value.trim().toUpperCase())});$('#nickname').addEventListener('keydown',e=>{if(e.key==='Enter')createRoom()});$('#copy-invite').addEventListener('click',async()=>{let url=location.origin+'/?room='+state.code;try{await navigator.clipboard.writeText(url);toast('Oda bağlantısı kopyalandı!')}catch{toast('Oda kodun: '+state.code)}});$$('[data-open]').forEach(b=>b.addEventListener('click',()=>state.panel===b.dataset.open?closePanel():openPanel(b.dataset.open)));$('[data-home]').addEventListener('click',closePanel);$('#worlds-button').addEventListener('click',()=>openPanel('world'));$('#close-drawer').addEventListener('click',closePanel);$('#panel-shade').addEventListener('click',closePanel);
- $('#world-labels').addEventListener('click',e=>{let t=e.target.closest('[data-station]');if(t)openPanel(stationPanel(t.dataset.station))});$('#drawer-body').addEventListener('click',e=>{const route=e.target.closest('[data-route]')?.dataset.route;if(route){openPanel(route);return;}if(e.target.closest('[data-leave-room]')){leaveRoom();return;}if(hubPanes.has(state.panel))hub.click(e);const roomAction=e.target.closest('[data-friends]')?.dataset.friends;if(roomAction==='invite')$('#copy-invite').click();if(roomAction==='timer')send(state.room.timer.running?'timer:pause':'timer:start').catch(()=>{});if(roomAction==='skip')send('timer:next').catch(()=>{});const remove=e.target.closest('[data-remove-message]');if(remove)send('chat:remove',{messageId:remove.dataset.removeMessage}).catch(()=>{});if(roomAction==='planner')openPanel('planner');if(state.panel==='world')handleWorldAction(e);if(state.panel==='study')handleStudy(e);if(state.panel==='quiz')handleQuiz(e);if(state.panel==='arcade')handleArcade(e);if(state.panel==='closet')handleCloset(e)});$('#drawer-body').addEventListener('change',e=>{if(hubPanes.has(state.panel))hub.change(e);if(e.target.id==='friends-duration')send('timer:set',{minutes:Number(e.target.value)}).catch(()=>{});if(e.target.form?.id==='avatar-form'&&previewMember)previewMember.avatar=cleanAvatar(Object.fromEntries(new FormData(e.target.form)));let cb=e.target.closest('[data-topic-toggle]');if(cb)send('topic:toggle',{topicId:cb.dataset.topicToggle})});$('#drawer-body').addEventListener('submit',async e=>{if(hubPanes.has(state.panel))hub.submit(e);if(e.target.id==='room-chat-form'){e.preventDefault();const message=String(new FormData(e.target).get('message')||'').trim();if(message){const input=e.target.elements.message;input.value='';try{await send('chat:send',{message});}catch{const current=$('#room-chat-form input');if(current&&!current.value)current.value=message;}}}if(e.target.id==='avatar-form'){e.preventDefault();const avatar=cleanAvatar(Object.fromEntries(new FormData(e.target)));try{await send('avatar:set',{avatar});rememberAvatar(avatar,me()?.skin);toast('Avatarın kaydedildi.');}catch{}}if(e.target.id==='quiz-add-form'){e.preventDefault();let f=new FormData(e.target);try{await send('quiz:add-custom',{q:f.get('question'),options:[0,1,2,3].map(i=>f.get('opt'+i)),correct:Number(f.get('correct')),explanation:f.get('explanation')});toast('Soru eklendi!');}catch{}}});
+function hook(){resetLabels();$('#solo-entry').addEventListener('click',openSolo);$('#solo-exit').addEventListener('click',closeSolo);$('#create-room').addEventListener('click',createRoom);$('#join-room').addEventListener('click',()=>joinRoom($('#join-code').value.trim().toUpperCase()));$('#join-code').addEventListener('keydown',e=>{if(e.key==='Enter')joinRoom(e.target.value.trim().toUpperCase())});$('#nickname').addEventListener('keydown',e=>{if(e.key==='Enter')createRoom()});$('#copy-invite').addEventListener('click',async()=>{let url=location.origin+'/?room='+state.code;try{await navigator.clipboard.writeText(url);toast('Oda bağlantısı kopyalandı!')}catch{toast('Oda kodun: '+state.code)}});$$('[data-open]').forEach(b=>b.addEventListener('click',()=>state.panel===b.dataset.open?closePanel():openPanel(b.dataset.open)));$('[data-home]').addEventListener('click',()=>state.solo?openPanel('today'):closePanel());$('#worlds-button').addEventListener('click',()=>openPanel('world'));$('#close-drawer').addEventListener('click',closePanel);$('#panel-shade').addEventListener('click',closePanel);
+ $('#world-labels').addEventListener('click',e=>{let t=e.target.closest('[data-station]');if(t)openPanel(stationPanel(t.dataset.station))});$('#drawer-body').addEventListener('click',e=>{const focusAction=e.target.closest('[data-personal-focus]')?.dataset.personalFocus;if(focusAction){handlePersonalFocus(focusAction);return;}const route=e.target.closest('[data-route]')?.dataset.route;if(route){openPanel(route);return;}if(e.target.closest('[data-leave-room]')){leaveRoom();return;}if(hubPanes.has(state.panel))hub.click(e);const roomAction=e.target.closest('[data-friends]')?.dataset.friends;if(roomAction==='invite')$('#copy-invite').click();if(roomAction==='timer')send(state.room.timer.running?'timer:pause':'timer:start').catch(()=>{});if(roomAction==='skip')send('timer:next').catch(()=>{});const remove=e.target.closest('[data-remove-message]');if(remove)send('chat:remove',{messageId:remove.dataset.removeMessage}).catch(()=>{});if(roomAction==='planner')openPanel('planner');if(state.panel==='world')handleWorldAction(e);if(state.panel==='study')handleStudy(e);if(state.panel==='quiz')handleQuiz(e);if(state.panel==='arcade')handleArcade(e);if(state.panel==='closet')handleCloset(e)});$('#drawer-body').addEventListener('change',e=>{if(hubPanes.has(state.panel))hub.change(e);if(e.target.id==='personal-duration')handlePersonalFocus('duration',Number(e.target.value));if(e.target.id==='friends-duration')send('timer:set',{minutes:Number(e.target.value)}).catch(()=>{});if(e.target.form?.id==='avatar-form'&&previewMember)previewMember.avatar=cleanAvatar(Object.fromEntries(new FormData(e.target.form)));let cb=e.target.closest('[data-topic-toggle]');if(cb)send('topic:toggle',{topicId:cb.dataset.topicToggle})});$('#drawer-body').addEventListener('submit',async e=>{if(hubPanes.has(state.panel))hub.submit(e);if(e.target.id==='room-chat-form'){e.preventDefault();const message=String(new FormData(e.target).get('message')||'').trim();if(message){const input=e.target.elements.message;input.value='';try{await send('chat:send',{message});}catch{const current=$('#room-chat-form input');if(current&&!current.value)current.value=message;}}}if(e.target.id==='avatar-form'){e.preventDefault();const avatar=cleanAvatar(Object.fromEntries(new FormData(e.target)));try{await send('avatar:set',{avatar});rememberAvatar(avatar,me()?.skin);toast('Avatarın kaydedildi.');}catch{}}if(e.target.id==='quiz-add-form'){e.preventDefault();let f=new FormData(e.target);try{await send('quiz:add-custom',{q:f.get('question'),options:[0,1,2,3].map(i=>f.get('opt'+i)),correct:Number(f.get('correct')),explanation:f.get('explanation')});toast('Soru eklendi!');}catch{}}});
  wireTouch();
  $('#drawer-body').addEventListener('input',e=>{if(hubPanes.has(state.panel))hub.input(e);});
  window.addEventListener('keydown',e=>{if(e.key==='Escape'&&state.panel)closePanel();});
- let saved;try{saved=JSON.parse(localStorage.getItem('study-plaza-3d')||'null')}catch{}let prm=new URLSearchParams(location.search).get('room');if(saved?.code&&saved?.id&&!prm){$('#nickname').value=saved.name;joinRoom(saved.code,saved.id,saved.name,saved.token)}else if(prm){$('#join-code').value=prm.toUpperCase().slice(0,6);if(saved?.code===prm.toUpperCase()){$('#nickname').value=saved.name;joinRoom(prm.toUpperCase(),saved.id,saved.name,saved.token)}}setInterval(()=>{if(state.room){tickTimer();if(state.game==='math'||state.game==='stars'){let m=$('#math-remaining'),s=$('#star-remaining');if(m)m.textContent=Math.max(0,Math.ceil((state.math.end-Date.now())/1000));if(s)s.textContent=Math.max(0,Math.ceil((state.starEnd-Date.now())/1000));if(state.game==='math'&&Date.now()>state.math.end&&state.panel==='arcade')renderDrawer();}}},1000);
+ let saved;try{saved=JSON.parse(localStorage.getItem('study-plaza-3d')||'null')}catch{}const params=new URLSearchParams(location.search);let prm=params.get('room');if(params.get('study')==='1'&&!prm)openSolo();else if(saved?.code&&saved?.id&&!prm){$('#nickname').value=saved.name;joinRoom(saved.code,saved.id,saved.name,saved.token)}else if(prm){$('#join-code').value=prm.toUpperCase().slice(0,6);if(saved?.code===prm.toUpperCase()){$('#nickname').value=saved.name;joinRoom(prm.toUpperCase(),saved.id,saved.name,saved.token)}}setInterval(()=>{if(state.solo&&state.panel==='focus')updatePersonalFocus();if(state.room){tickTimer();if(state.game==='math'||state.game==='stars'){let m=$('#math-remaining'),s=$('#star-remaining');if(m)m.textContent=Math.max(0,Math.ceil((state.math.end-Date.now())/1000));if(s)s.textContent=Math.max(0,Math.ceil((state.starEnd-Date.now())/1000));if(state.game==='math'&&Date.now()>state.math.end&&state.panel==='arcade')renderDrawer();}}},1000);
 }
 hook();
